@@ -2,7 +2,7 @@
     "dependencies": {
         "obs-studio": {
             "version": "31.0.103",
-            "baseUrl": "https://github.com/restream/obs-studio/archive/refs/tags",
+            "baseUrl": "https://github.com/restreamio/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
                 "macos": "299bc7e55af949b15c3d45634c414c995d5d01f460fceb30d04e5d5c781dbe4b",
