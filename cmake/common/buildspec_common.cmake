@@ -82,16 +82,20 @@ function(_setup_obs_studio)
       -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh}
       ${_cmake_extra}
     RESULT_VARIABLE _process_result COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET)
-  message(STATUS "Configure ${label} (${arch}) - done")
+    OUTPUT_VARIABLE cmake_output
+    # OUTPUT_QUIET
+  )
+  message(STATUS "Configure ${label} (${arch}) - done: ${cmake_output}")
 
   message(STATUS "Build ${label} (${arch})")
   execute_process(
     COMMAND "${CMAKE_COMMAND}" --build build_${arch} --target obs-frontend-api --config Debug --parallel
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET)
-  message(STATUS "Build ${label} (${arch}) - done")
+    OUTPUT_VARIABLE cmake_output
+    # OUTPUT_QUIET
+  )
+  message(STATUS "Build ${label} (${arch}) - done: ${cmake_output}")
 
   message(STATUS "Install ${label} (${arch})")
   if(OS_WINDOWS)
@@ -104,8 +108,10 @@ function(_setup_obs_studio)
             "${dependencies_dir}" ${_cmake_extra}
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET)
-  message(STATUS "Install ${label} (${arch}) - done")
+    OUTPUT_VARIABLE cmake_output
+    # OUTPUT_QUIET
+  )
+  message(STATUS "Install ${label} (${arch}) - done: ${cmake_output}")
 endfunction()
 
 # _check_dependencies: Fetch and extract pre-built OBS build dependencies
