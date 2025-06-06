@@ -85,8 +85,10 @@ macro(find_qt)
     if(NOT TARGET Qt::${component} AND TARGET Qt${_QT_VERSION}::${component})
       add_library(Qt::${component} INTERFACE IMPORTED)
       set_target_properties(Qt::${component} PROPERTIES INTERFACE_LINK_LIBRARIES Qt${_QT_VERSION}::${component})
+      set_property(TARGET Qt::${component} PROPERTY INTERFACE_COMPILE_FEATURES "")
     endif()
-    set_property(TARGET Qt::${component} PROPERTY INTERFACE_COMPILE_FEATURES "")
+
+    # set_property(TARGET Qt::${component} PROPERTY INTERFACE_COMPILE_FEATURES "")
   endforeach()
 
 endmacro()
