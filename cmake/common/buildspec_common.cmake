@@ -97,12 +97,14 @@ function(_setup_obs_studio)
   )
   message(STATUS "Build ${label} (${arch}) - done: ${cmake_output}")
 
-  message(STATUS "Install ${label} (${arch})")
+  message(STATUS "Install ${label} (${arch}): ${CMAKE_COMMAND} --install build_${arch} --component Development --config Debug --prefix ${dependencies_dir} ${_cmake_extra}")
+
   if(OS_WINDOWS)
     set(_cmake_extra "--component obs_libraries")
   else()
     set(_cmake_extra "")
   endif()
+
   execute_process(
     COMMAND "${CMAKE_COMMAND}" --install build_${arch} --component Development --config Debug --prefix
             "${dependencies_dir}" ${_cmake_extra}
