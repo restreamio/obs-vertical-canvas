@@ -5,8 +5,8 @@
             "baseUrl": "https://github.com/restreamio/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
-                "macos": "a526be1efd4b521d10cd23fb8a56bd704e462d1b9c90f2cb756ba55ee6f5d9a7",
-                "windows-x64": "61e77f9ed1fee9a4b1cd92f789b304091b6b3fcb8990ac2473b59c14351dddaf"
+                "macos": "b85f0bd42c18ea271baaa892dbaeed958c30e86c061925a32f72f58e15623ea4",
+                "windows-x64": "4c371be89c241ce8c1ed529d9ada55a259a45a4d669d4fd14986f6951d3c6567"
             }
         },
         "prebuilt": {
