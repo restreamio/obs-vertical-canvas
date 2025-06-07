@@ -15,7 +15,7 @@ function(set_target_properties_plugin target)
   set(multiValueArgs PROPERTIES)
   cmake_parse_arguments(PARSE_ARGV 0 _STPO "${options}" "${oneValueArgs}" "${multiValueArgs}")
 
-  message(DEBUG "Setting additional properties for target ${target}...")
+  message(STATUS "Setting additional properties for target ${target}...")
 
   while(_STPO_PROPERTIES)
     list(POP_FRONT _STPO_PROPERTIES key value)
@@ -70,6 +70,8 @@ function(set_target_properties_plugin target)
   else()
     set(UUID_APP ${_windowsAppUUID})
   endif()
+
+  message(STATUS "Init installer: ${CMAKE_CURRENT_BINARY_DIR}/installer-Windows.generated.iss")
 
   configure_file(cmake/windows/resources/installer-Windows.iss.in
                  "${CMAKE_CURRENT_BINARY_DIR}/installer-Windows.generated.iss")
