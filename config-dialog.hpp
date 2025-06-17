@@ -48,6 +48,8 @@ private:
 	QSpinBox *maxTime;
 
 	QFormLayout *streamingLayout;
+
+	// TODO Delete all server lists
 	std::vector<QLineEdit *> server_names;
 	std::vector<QComboBox *> servers;
 	std::vector<QLineEdit *> keys;

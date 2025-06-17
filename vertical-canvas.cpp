@@ -161,6 +161,10 @@ void frontend_event(obs_frontend_event event, void *private_data)
 		for (const auto &it : canvas_docks) {
 			QMetaObject::invokeMethod(it, "MainStreamStart", Qt::QueuedConnection);
 		}
+	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTING) {
+		for (const auto &it : canvas_docks) {
+			QMetaObject::invokeMethod(it, "MainStreamStarting", Qt::DirectConnection);
+		}	
 	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STOPPING || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED) {
 		for (const auto &it : canvas_docks) {
 			QMetaObject::invokeMethod(it, "MainStreamStop", Qt::QueuedConnection);
@@ -1242,12 +1246,17 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	streamButton->setMinimumHeight(30);
 	streamButton->setObjectName(QStringLiteral("canvasStream"));
 	streamButton->setIcon(streamInactiveIcon);
-	streamButton->setCheckable(true);
-	streamButton->setChecked(false);
-	streamButton->setToolTip(QString::fromUtf8(obs_module_text("StreamVertical")));
-	streamButton->setStyleSheet(
-		QString::fromUtf8("QPushButton:checked{background: rgb(0,210,153);}") +
-		QString::fromUtf8(multi_rtmp ? "QPushButton{border-top-right-radius: 0; border-bottom-right-radius: 0;}" : ""));
+	streamButton->setCheckable(false); // true
+	// streamButton->setChecked(false);
+	streamButton->setText("Autostart enabled"); // TODO Make lang
+	streamButton->setToolTip(QString::fromUtf8(obs_module_text("EnableDisableStreamVertical")));
+
+	//streamButton->setStyleSheet(
+	//	QString::fromUtf8("QPushButton:checked{background: rgb(0,210,153);}") +
+	//	QString::fromUtf8(multi_rtmp ? "QPushButton{border-top-right-radius: 0; border-bottom-right-radius: 0;}" : ""));
+
+	// streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,0,0);}"));
+
 	connect(streamButton, SIGNAL(clicked()), this, SLOT(StreamButtonClicked()));
 	streamButtonGroup->layout()->addWidget(streamButton);
 
@@ -1263,7 +1272,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	streamButtonMulti->setStyleSheet(
 		QString::fromUtf8("QPushButton{width: 16px; border-top-left-radius: 0; border-bottom-left-radius: 0;}"));
 	streamButtonMulti->setVisible(multi_rtmp);
-	streamButtonGroup->layout()->addWidget(streamButtonMulti);
+	// streamButtonGroup->layout()->addWidget(streamButtonMulti);
 
 	buttonRow->addWidget(streamButtonGroup);
 
@@ -1406,7 +1415,10 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 			streamButtonText = t.toString(t.hour() ? "hh:mm:ss" : "mm:ss");
 			break;
 		}
-		if (streamButton->text() != streamButtonText) {
+
+		// Show stream time on Stream Button
+		if (!streamButtonText.isEmpty() && streamButton->text() != streamButtonText && enable_vertical) {
+			streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,210,153);}"));
 			streamButton->setText(streamButtonText);
 		}
 	});
@@ -1426,38 +1438,38 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	connect(configButton, SIGNAL(clicked()), this, SLOT(ConfigButtonClicked()));
 	buttonRow->addWidget(configButton);
 
-	auto aitumButtonGroupLayout = new QHBoxLayout();
-	aitumButtonGroupLayout->setContentsMargins(0, 0, 0, 0);
-	aitumButtonGroupLayout->setSpacing(0);
+	// auto aitumButtonGroupLayout = new QHBoxLayout();
+	// aitumButtonGroupLayout->setContentsMargins(0, 0, 0, 0);
+	// aitumButtonGroupLayout->setSpacing(0);
 
-	auto contributeButton = new QPushButton;
-	contributeButton->setMinimumHeight(30);
-	QPixmap pixmap(32, 32);
-	pixmap.fill(Qt::transparent);
+	// auto contributeButton = new QPushButton;
+	// contributeButton->setMinimumHeight(30);
+	// QPixmap pixmap(32, 32);
+	// pixmap.fill(Qt::transparent);
 
-	QPainter painter(&pixmap);
-	QFont font = painter.font();
-	font.setPixelSize(32);
-	painter.setFont(font);
-	painter.drawText(pixmap.rect(), Qt::AlignCenter, "❤️");
-	contributeButton->setIcon(QIcon(pixmap));
-	contributeButton->setToolTip(QString::fromUtf8(obs_module_text("VerticalDonate")));
-	contributeButton->setStyleSheet(
-		QString::fromUtf8("QPushButton{ border-top-right-radius: 0; border-bottom-right-radius: 0;}"));
-	QPushButton::connect(contributeButton, &QPushButton::clicked,
-			     [] { QDesktopServices::openUrl(QUrl("https://aitum.tv/contribute")); });
+	// QPainter painter(&pixmap);
+	// QFont font = painter.font();
+	// font.setPixelSize(32);
+	// painter.setFont(font);
+	// painter.drawText(pixmap.rect(), Qt::AlignCenter, "❤️");
+	// contributeButton->setIcon(QIcon(pixmap));
+	// contributeButton->setToolTip(QString::fromUtf8(obs_module_text("VerticalDonate")));
+	// contributeButton->setStyleSheet(
+	// 	QString::fromUtf8("QPushButton{ border-top-right-radius: 0; border-bottom-right-radius: 0;}"));
+	// QPushButton::connect(contributeButton, &QPushButton::clicked,
+	// 		     [] { QDesktopServices::openUrl(QUrl("https://aitum.tv/contribute")); });
 
-	aitumButtonGroupLayout->addWidget(contributeButton);
+	// aitumButtonGroupLayout->addWidget(contributeButton);
 
-	auto aitumButton = new QPushButton;
-	aitumButton->setMinimumHeight(30);
-	aitumButton->setIcon(QIcon(":/aitum/media/aitum.png"));
-	aitumButton->setToolTip(QString::fromUtf8("https://aitum.tv"));
-	aitumButton->setStyleSheet(QString::fromUtf8("QPushButton{border-top-left-radius: 0; border-bottom-left-radius: 0;}"));
-	connect(aitumButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://aitum.tv")); });
-	aitumButtonGroupLayout->addWidget(aitumButton);
+	// auto aitumButton = new QPushButton;
+	// aitumButton->setMinimumHeight(30);
+	// aitumButton->setIcon(QIcon(":/aitum/media/aitum.png"));
+	// aitumButton->setToolTip(QString::fromUtf8("https://aitum.tv"));
+	// aitumButton->setStyleSheet(QString::fromUtf8("QPushButton{border-top-left-radius: 0; border-bottom-left-radius: 0;}"));
+	// connect(aitumButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://aitum.tv")); });
+	// aitumButtonGroupLayout->addWidget(aitumButton);
 
-	buttonRow->addLayout(aitumButtonGroupLayout);
+	// buttonRow->addLayout(aitumButtonGroupLayout);
 
 	setStyleSheet(QString::fromUtf8("QPushButton{padding-left: 4px; padding-right: 4px;}"));
 
@@ -5948,17 +5960,32 @@ void CanvasDock::replay_output_stop(void *data, calldata_t *calldata)
 
 void CanvasDock::StreamButtonClicked()
 {
+	enable_vertical = !enable_vertical;
+	// TODO Save settings
 
-	int active_count = 0;
-	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
-		if (obs_output_active(it->output))
-			active_count++;
+	if (!enable_vertical) {
+		int active_count = 0;
+		for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
+			if (obs_output_active(it->output))
+				active_count++;
+		}
+		if (active_count > 0) {
+			StopStream();
+			return;
+		}
 	}
-	if (active_count > 0) {
-		StopStream();
-		return;
+
+	if (enable_vertical) {
+		streamButton->setStyleSheet(QString::fromUtf8(""));
+		streamButton->setIcon(streamInactiveIcon);
+		streamButton->setText("Autostart enabled"); // TODO Make lang
+	} else {
+		streamButton->setStyleSheet(QString::fromUtf8(""));
+		streamButton->setIcon(QIcon());
+		streamButton->setText("Autostart disabled"); // TODO Make lang
 	}
-	StartStream();
+
+	//StartStream();
 }
 
 void CanvasDock::StreamButtonMultiMenu(QMenu *menu)
@@ -5987,6 +6014,47 @@ void CanvasDock::StreamButtonMultiMenu(QMenu *menu)
 	} else {
 		menu->addAction(QString::fromUtf8(obs_module_text("StopAll")), [this] { StopStream(); });
 	}
+}
+
+
+void CanvasDock::PatchMainUrl() {
+	// TODO temporary use old /live application without patching
+
+//#ifdef _WIN32
+//	auto handle = os_dlopen("obs");
+//#else
+//	auto handle = dlopen(nullptr, RTLD_LAZY);
+//#endif
+//
+//	auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
+//	if (service_func) {
+//		obs_service_t *mainService = service_func("default_service");
+//
+//		if (mainService) {
+//			auto info_func =
+//				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
+//
+//			if (info_func) {
+//				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+//				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+//
+//				auto addressPos = url.find(".restream.io"); // TODO Case ?
+//				auto appPos = url.rfind("/live");
+//
+//				// TODO Show error and disable autostart if addressPos is correct but appPos is absent
+//				if (addressPos != std::string::npos && appPos != std::string::npos) {
+//					url.replace(appPos, 5, "/horizontal");
+//
+//					auto s = obs_data_create();
+//					obs_data_set_string(s, "server", url.c_str());
+//					obs_service_update(mainService, s);
+//					obs_data_release(s);
+//
+//					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url changed, url=%s", url.c_str());
+//				}
+//			}
+//		}
+//	}
 }
 
 void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it)
@@ -6094,35 +6162,75 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 	//password
 	obs_service_update(it->service, s);
 	obs_data_release(s);
+
 	const char *type = nullptr;
+	obs_service_t *mainService;
+
 #ifdef _WIN32
 	auto handle = os_dlopen("obs");
 #else
 	auto handle = dlopen(nullptr, RTLD_LAZY);
 #endif
 	if (handle) {
+		// const auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
+		// const auto mainWindow = reinterpret_cast<OBSBasic *>(obs_frontend_get_main_window());
+		// auto res = QMetaObject::invokeMethod(main_window, "GetService");
+
+		auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
+		if (service_func) {
+			mainService = service_func("default_service");
+		}
+
 		auto type_func = (const char *(*)(obs_service_t *))os_dlsym(handle, "obs_service_get_output_type");
-		if (!type_func)
+		if (!type_func) {
 			type_func = (const char *(*)(obs_service_t *))os_dlsym(handle, "obs_service_get_preferred_output_type");
+		}
 		if (type_func) {
 			type = type_func(it->service);
 		}
+
+		blog(LOG_INFO, "[Vertical Canvas] Stream type=%s (should be null for restream alt output)", type ? type : "null");
+
 		if (!type) {
 			const char *url = nullptr;
+			const char *key = nullptr;
+
 			auto url_func = (const char *(*)(obs_service_t *))os_dlsym(handle, "obs_service_get_url");
 			if (url_func) {
 				url = url_func(it->service);
 			} else {
-				auto info_func = (const char *(*)(obs_service_t *,
-								  uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
-				if (info_func)
-					url = info_func(it->service, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				auto info_func = (const char *(*)(obs_service_t *, 
+					uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
+				if (info_func) {
+					url = info_func(mainService ? mainService : it->service,
+							0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+					key = info_func(mainService ? mainService : it->service,
+							2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+				}
 			}
+
 			type = "rtmp_output";
 			if (url != nullptr && strncmp(url, "ftl", 3) == 0) {
 				type = "ftl_output";
 			} else if (url != nullptr && strncmp(url, "rtmp", 4) != 0) {
 				type = "ffmpeg_mpegts_muxer";
+			} else {
+				std::string mainUrl = url;
+				auto appPos = mainUrl.rfind("/live");
+				if (appPos != std::string::npos)
+					mainUrl.replace(appPos, 5, "/vertical");
+
+				std::string mainAltKey = key;
+				// mainAltKey.append(".a1");
+
+				auto s = obs_data_create();
+				obs_data_set_string(s, "server", mainUrl.c_str());
+				obs_data_set_string(s, "key", mainAltKey.c_str());
+				obs_data_set_string(s, "bearer_token", mainAltKey.c_str());
+				obs_service_update(it->service, s);
+				obs_data_release(s);
+
+				blog(LOG_INFO, "[Vertical Canvas] Setup restream output, url=%s", mainUrl.c_str());
 			}
 		}
 		os_dlclose(handle);
@@ -6255,6 +6363,7 @@ void CanvasDock::StartStream()
 		if (it->enabled)
 			to_start = true;
 	}
+
 	if (!to_start) {
 		blog(LOG_WARNING, "[Vertical Canvas] No stream output to start");
 		QMetaObject::invokeMethod(this, "OnStreamStop", Q_ARG(int, OBS_OUTPUT_SUCCESS),
@@ -6404,7 +6513,8 @@ void CanvasDock::StartStream()
 
 void CanvasDock::StopStream()
 {
-	streamButton->setChecked(false);
+	// streamButton->setChecked(false);
+
 	bool done = false;
 	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
 		if (obs_output_active(it->output)) {
@@ -6412,8 +6522,21 @@ void CanvasDock::StopStream()
 			done = true;
 		}
 	}
+
 	if (done)
 		SendVendorEvent("streaming_stopping");
+	
+	if (enable_vertical) {
+		streamButton->setStyleSheet(QString::fromUtf8(""));
+		streamButton->setIcon(streamInactiveIcon);
+		streamButton->setText("Autostart enabled"); // TODO Make lang
+	} else {
+		streamButton->setStyleSheet(QString::fromUtf8(""));
+		streamButton->setIcon(QIcon());
+		streamButton->setText("Autostart disabled"); // TODO Make lang
+	}
+
+
 	CheckReplayBuffer();
 }
 
@@ -7180,10 +7303,10 @@ void CanvasDock::OnReplaySaved()
 
 void CanvasDock::OnStreamStart()
 {
-	streamButton->setChecked(true);
+	// streamButton->setChecked(true);
 	streamButton->setIcon(streamActiveIcon);
-	streamButton->setText("00:00");
-	streamButton->setChecked(true);
+	streamButton->setText("Starting"); // TODO Make lang
+	// streamButton->setChecked(true);
 	CheckReplayBuffer(true);
 }
 
@@ -7201,10 +7324,18 @@ void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_serve
 		}
 	}
 	if (!active) {
-		streamButton->setChecked(false);
-		streamButton->setIcon(streamInactiveIcon);
-		streamButton->setText("");
-		streamButton->setChecked(false);
+		// streamButton->setChecked(false);
+		if (enable_vertical) {
+			streamButton->setStyleSheet(QString::fromUtf8(""));
+			streamButton->setIcon(streamInactiveIcon);
+			streamButton->setText("Autostart enabled");  // TODO Make lang
+		}
+		else {
+			streamButton->setStyleSheet(QString::fromUtf8(""));
+			streamButton->setIcon(QIcon());
+			streamButton->setText("Autostart disabled"); // TODO Make lang
+		}
+		// streamButton->setChecked(false);
 	}
 	const char *errorDescription = "";
 
@@ -7398,12 +7529,15 @@ bool CanvasDock::start_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_h
 	UNUSED_PARAMETER(hotkey);
 	if (!pressed)
 		return false;
+
 	const auto d = static_cast<CanvasDock *>(data);
 	for (auto it = d->streamOutputs.begin(); it != d->streamOutputs.end(); ++it)
 		if (obs_output_active(it->output))
 			return false;
-	QMetaObject::invokeMethod(d, "StreamButtonClicked");
-	return true;
+
+	// QMetaObject::invokeMethod(d, "StreamButtonClicked");
+	// return true;
+	return false;
 }
 
 bool CanvasDock::stop_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
@@ -7419,8 +7553,10 @@ bool CanvasDock::stop_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_ho
 			found = true;
 	if (!found)
 		return false;
-	QMetaObject::invokeMethod(d, "StreamButtonClicked");
-	return true;
+
+	// QMetaObject::invokeMethod(d, "StreamButtonClicked");
+	// return true;
+	return false;
 }
 
 bool CanvasDock::pause_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
@@ -7532,18 +7668,32 @@ QIcon CanvasDock::GetGroupIcon() const
 	return main_window->property("groupIcon").value<QIcon>();
 }
 
+void CanvasDock::MainStreamStarting()
+{
+	blog(LOG_INFO, "[Vertical Canvas] Main stream starting");
+
+	if (enable_vertical)
+		PatchMainUrl();
+}
+
 void CanvasDock::MainStreamStart()
 {
+	blog(LOG_INFO, "[Vertical Canvas] Main stream start");
+
 	CheckReplayBuffer(true);
-	if (streamingMatchMain)
+
+	// if (streamingMatchMain || true)
+	if (enable_vertical)
 		StartStream();
 }
 
 void CanvasDock::MainStreamStop()
 {
+	blog(LOG_INFO, "[Vertical Canvas] Main stream stop");
+
 	CheckReplayBuffer();
-	if (streamingMatchMain)
-		StopStream();
+	// if (streamingMatchMain || true)
+	StopStream();
 }
 
 void CanvasDock::MainRecordStart()
@@ -8091,67 +8241,76 @@ void CanvasDock::get_transitions(void *data, struct obs_frontend_source_list *so
 	}
 }
 
-bool CanvasDock::LoadStreamOutputs(obs_data_array_t *outputs)
+bool CanvasDock::LoadStreamOutputs(obs_data_array_t *) // outputs
 {
-	auto count = obs_data_array_count(outputs);
-	auto enabled_count = 0;
-	for (auto it = streamOutputs.begin(); it != streamOutputs.end();) {
-		bool found = false;
-		for (size_t i = 0; !found && i < count; i++) {
-			auto item = obs_data_array_item(outputs, i);
-			if (it->name == obs_data_get_string(item, "name")) {
-				it->stream_server = obs_data_get_string(item, "stream_server");
-				it->stream_key = obs_data_get_string(item, "stream_key");
-				it->enabled = obs_data_get_bool(item, "enabled");
-				if (it->enabled)
-					enabled_count++;
-				obs_data_release(it->settings);
-				it->settings = item;
-				found = true;
-				break;
-			}
-			obs_data_release(item);
-		}
-		if (!found) {
-			if (obs_output_active(it->output))
-				obs_output_stop(it->output);
-			obs_output_release(it->output);
-			obs_data_release(it->settings);
-			it = streamOutputs.erase(it);
-		} else {
-			it++;
-		}
-	}
+	StreamServer ss;
+	ss.stream_server = "rtmp://live.restream.io/live";
+	ss.stream_key = "re_";
+	ss.service = obs_service_create("rtmp_custom", "vertical_canvas_stream_service_0", nullptr, nullptr);
+	ss.enabled = true;
+	streamOutputs.push_back(ss);
 
-	for (size_t i = 0; i < count; i++) {
-		auto item = obs_data_array_item(outputs, i);
-		auto name = obs_data_get_string(item, "name");
-		bool found = false;
-		for (auto it = streamOutputs.begin(); it != streamOutputs.end(); it++) {
-			if (it->name == name) {
-				found = true;
-				break;
-			}
-		}
-		if (found) {
-			obs_data_release(item);
-			continue;
-		}
-		StreamServer ss;
-		ss.name = name;
-		ss.stream_server = obs_data_get_string(item, "stream_server");
-		ss.stream_key = obs_data_get_string(item, "stream_key");
-		ss.enabled = obs_data_get_bool(item, "enabled");
-		if (ss.enabled)
-			enabled_count++;
-		std::string service_name = "vertical_canvas_stream_service_";
-		service_name += std::to_string(i);
-		bool whip = strstr(ss.stream_server.c_str(), "whip") != nullptr;
-		ss.service = obs_service_create(whip ? "whip_custom" : "rtmp_custom", service_name.c_str(), nullptr, nullptr);
-		ss.settings = item;
-		streamOutputs.push_back(ss);
-	}
-	return enabled_count > 1;
+	return false;
+
+	//auto count = obs_data_array_count(outputs);
+	//auto enabled_count = 0;
+	//for (auto it = streamOutputs.begin(); it != streamOutputs.end();) {
+	//	bool found = false;
+	//	for (size_t i = 0; !found && i < count; i++) {
+	//		auto item = obs_data_array_item(outputs, i);
+	//		if (it->name == obs_data_get_string(item, "name")) {
+	//			it->stream_server = obs_data_get_string(item, "stream_server");
+	//			it->stream_key = obs_data_get_string(item, "stream_key");
+	//			it->enabled = obs_data_get_bool(item, "enabled");
+	//			if (it->enabled)
+	//				enabled_count++;
+	//			obs_data_release(it->settings);
+	//			it->settings = item;
+	//			found = true;
+	//			break;
+	//		}
+	//		obs_data_release(item);
+	//	}
+	//	if (!found) {
+	//		if (obs_output_active(it->output))
+	//			obs_output_stop(it->output);
+	//		obs_output_release(it->output);
+	//		obs_data_release(it->settings);
+	//		it = streamOutputs.erase(it);
+	//	} else {
+	//		it++;
+	//	}
+	//}
+
+	//for (size_t i = 0; i < count; i++) {
+	//	auto item = obs_data_array_item(outputs, i);
+	//	auto name = obs_data_get_string(item, "name");
+	//	bool found = false;
+	//	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); it++) {
+	//		if (it->name == name) {
+	//			found = true;
+	//			break;
+	//		}
+	//	}
+	//	if (found) {
+	//		obs_data_release(item);
+	//		continue;
+	//	}
+	//	StreamServer ss;
+	//	ss.name = name;
+	//	ss.stream_server = obs_data_get_string(item, "stream_server");
+	//	ss.stream_key = obs_data_get_string(item, "stream_key");
+	//	ss.enabled = obs_data_get_bool(item, "enabled");
+	//	if (ss.enabled)
+	//		enabled_count++;
+	//	std::string service_name = "vertical_canvas_stream_service_";
+	//	service_name += std::to_string(i);
+	//	bool whip = strstr(ss.stream_server.c_str(), "whip") != nullptr;
+	//	ss.service = obs_service_create(whip ? "whip_custom" : "rtmp_custom", service_name.c_str(), nullptr, nullptr);
+	//	ss.settings = item;
+	//	streamOutputs.push_back(ss);
+	//}
+	//return enabled_count > 1;
 }
 
 obs_data_array_t *CanvasDock::SaveStreamOutputs()
@@ -8216,14 +8375,14 @@ void CanvasDock::UpdateMulti()
 	if (enabled_count > 1 && !multi_rtmp) {
 		streamButtonMulti->setVisible(true);
 		multi_rtmp = true;
-		streamButton->setChecked(active_count > 0);
-		streamButton->setStyleSheet(QString::fromUtf8(
-			"QPushButton:checked{background: rgb(0,210,153);} QPushButton{border-top-right-radius: 0; border-bottom-right-radius: 0;}"));
+		// streamButton->setChecked(active_count > 0);
+		// streamButton->setStyleSheet(QString::fromUtf8(
+		// 	"QPushButton:checked{background: rgb(0,210,153);} QPushButton{border-top-right-radius: 0; border-bottom-right-radius: 0;}"));
 	} else if (enabled_count <= 1 && multi_rtmp) {
 		streamButtonMulti->setVisible(false);
 		multi_rtmp = false;
-		streamButton->setChecked(active_count > 0);
-		streamButton->setStyleSheet(QString::fromUtf8("QPushButton:checked{background: rgb(0,210,153);}"));
+		// streamButton->setChecked(active_count > 0);
+		// streamButton->setStyleSheet(QString::fromUtf8("QPushButton:checked{background: rgb(0,210,153);}"));
 	}
 }
 

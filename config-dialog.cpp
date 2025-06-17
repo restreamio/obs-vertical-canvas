@@ -45,13 +45,13 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	listwidgetitem->setIcon(QIcon(QString::fromUtf8(":/settings/images/settings/output.svg")));
 	listwidgetitem->setText(QString::fromUtf8(obs_module_text("Recording")));
 
-	listwidgetitem = new QListWidgetItem(listWidget);
-	listwidgetitem->setIcon(canvasDock->GetIconFromType(OBS_ICON_TYPE_UNKNOWN));
-	listwidgetitem->setText(QString::fromUtf8(obs_module_text("Help")));
+	// listwidgetitem = new QListWidgetItem(listWidget);
+	// listwidgetitem->setIcon(canvasDock->GetIconFromType(OBS_ICON_TYPE_UNKNOWN));
+	// listwidgetitem->setText(QString::fromUtf8(obs_module_text("Help")));
 
-	listwidgetitem = new QListWidgetItem(listWidget);
-	listwidgetitem->setIcon(QIcon(QString::fromUtf8(":/aitum/media/aitum.png")));
-	listwidgetitem->setText(QString::fromUtf8(obs_module_text("SupportButton")));
+	// listwidgetitem = new QListWidgetItem(listWidget);
+	// listwidgetitem->setIcon(QIcon(QString::fromUtf8(":/aitum/media/aitum.png")));
+	// listwidgetitem->setText(QString::fromUtf8(obs_module_text("SupportButton")));
 
 	listWidget->setCurrentRow(0);
 	listWidget->setSpacing(1);
@@ -91,7 +91,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	scrollArea->setWidgetResizable(true);
 	scrollArea->setLineWidth(0);
 	scrollArea->setFrameShape(QFrame::NoFrame);
-	settingsPages->addWidget(scrollArea);
+	// settingsPages->addWidget(scrollArea);
 
 	// Support page
 	QWidget *supportPage = new QWidget;
@@ -111,7 +111,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	supportLayout->addWidget(supportLabel, 1);
 	supportPageLayout->addWidget(supportInfoBox, 1, Qt::AlignTop);
 
-	settingsPages->addWidget(supportPage);
+	// settingsPages->addWidget(supportPage);
 
 	connect(listWidget, &QListWidget::currentRowChanged, settingsPages, &QStackedWidget::setCurrentIndex);
 
@@ -132,7 +132,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	auto guide_link = new QLabel(QString::fromUtf8("<a href=\"https://l.aitum.tv/vh-general-settings\">") +
 				     QString::fromUtf8(obs_module_text("ViewGuide")) + QString::fromUtf8("</a>"));
 	guide_link->setOpenExternalLinks(true);
-	general_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
+	// general_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
 
 	generalLayout->addRow(general_title_layout);
 
@@ -189,7 +189,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	guide_link = new QLabel(QString::fromUtf8("<a href=\"https://l.aitum.tv/vh-backtrack-settings\">") +
 				QString::fromUtf8(obs_module_text("ViewGuide")) + QString::fromUtf8("</a>"));
 	guide_link->setOpenExternalLinks(true);
-	backtrack_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
+	// backtrack_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
 
 	backtrackLayout->addRow(backtrack_title_layout);
 
@@ -318,36 +318,36 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	guide_link = new QLabel(QString::fromUtf8("<a href=\"https://l.aitum.tv/vh-streaming-settings\">") +
 				QString::fromUtf8(obs_module_text("ViewGuide")) + QString::fromUtf8("</a>"));
 	guide_link->setOpenExternalLinks(true);
-	streaming_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
+	// streaming_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
 
 	streamingLayout->addRow(streaming_title_layout);
 
-	if (!canvasDock->disable_stream_settings) {
-		auto hl = new QHBoxLayout;
-		auto addButton = new QPushButton(QIcon(QString::fromUtf8(":/res/images/plus.svg")),
-						 QString::fromUtf8(obs_frontend_get_locale_string("Add")));
-		addButton->setProperty("themeID", QVariant(QString::fromUtf8("addIconSmall")));
-		addButton->setProperty("class", "icon-plus");
-		connect(addButton, &QPushButton::clicked, [this] { AddServer(); });
-		hl->addWidget(addButton);
-		auto removeButton = new QPushButton(QIcon(":/res/images/minus.svg"),
-						    QString::fromUtf8(obs_frontend_get_locale_string("Remove")));
-		removeButton->setProperty("themeID", QVariant(QString::fromUtf8("removeIconSmall")));
-		removeButton->setProperty("class", "icon-minus");
-		connect(removeButton, &QPushButton::clicked, [this] {
-			if (servers.size() <= 1)
-				return;
-			auto idx = (int)servers.size();
-			streamingLayout->removeRow(idx);
-			server_names.pop_back();
-			servers.pop_back();
-			keys.pop_back();
-			servers_enabled.pop_back();
-		});
-		hl->addWidget(removeButton);
+	// if (!canvasDock->disable_stream_settings) {
+	// 	auto hl = new QHBoxLayout;
+	// 	auto addButton = new QPushButton(QIcon(QString::fromUtf8(":/res/images/plus.svg")),
+	// 					 QString::fromUtf8(obs_frontend_get_locale_string("Add")));
+	// 	addButton->setProperty("themeID", QVariant(QString::fromUtf8("addIconSmall")));
+	// 	addButton->setProperty("class", "icon-plus");
+	// 	connect(addButton, &QPushButton::clicked, [this] { AddServer(); });
+	// 	hl->addWidget(addButton);
+	// 	auto removeButton = new QPushButton(QIcon(":/res/images/minus.svg"),
+	// 					    QString::fromUtf8(obs_frontend_get_locale_string("Remove")));
+	// 	removeButton->setProperty("themeID", QVariant(QString::fromUtf8("removeIconSmall")));
+	// 	removeButton->setProperty("class", "icon-minus");
+	// 	connect(removeButton, &QPushButton::clicked, [this] {
+	// 		if (servers.size() <= 1)
+	// 			return;
+	// 		auto idx = (int)servers.size();
+	// 		streamingLayout->removeRow(idx);
+	// 		server_names.pop_back();
+	// 		servers.pop_back();
+	// 		keys.pop_back();
+	// 		servers_enabled.pop_back();
+	// 	});
+	// 	hl->addWidget(removeButton);
 
-		streamingLayout->addRow(hl);
-	}
+	// 	streamingLayout->addRow(hl);
+	// }
 
 	streamingVideoBitrate = new QSpinBox;
 	streamingVideoBitrate->setSuffix(" Kbps");
@@ -357,39 +357,39 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 				streamingVideoBitrate);
 
 	streamingMatchMain = new QCheckBox(QString::fromUtf8(obs_module_text("StreamingMatchMain")));
-	streamingLayout->addWidget(streamingMatchMain);
+	// streamingLayout->addWidget(streamingMatchMain);
 
 	otherHotkey = nullptr;
-	hotkey = GetHotkeyByName("VerticalCanvasDockStartStreaming");
-	if (hotkey) {
-		auto id = obs_hotkey_get_id(hotkey);
-		std::vector<obs_key_combination_t> combos = GetCombosForHotkey(id);
-		auto hn = obs_hotkey_get_name(hotkey);
-		auto hw = new OBSHotkeyWidget(this, id, hn, combos);
-		otherHotkey = hw;
-		auto label = new OBSHotkeyLabel;
-		label->setText(QString::fromUtf8(obs_module_text("StartStreamingHotkey")));
-		hw->label = label;
-		streamingLayout->addRow(label, hw);
-		hotkeys.push_back(hw);
-	}
+	// hotkey = GetHotkeyByName("VerticalCanvasDockStartStreaming");
+	// if (hotkey) {
+	// 	auto id = obs_hotkey_get_id(hotkey);
+	// 	std::vector<obs_key_combination_t> combos = GetCombosForHotkey(id);
+	// 	auto hn = obs_hotkey_get_name(hotkey);
+	// 	auto hw = new OBSHotkeyWidget(this, id, hn, combos);
+	// 	otherHotkey = hw;
+	// 	auto label = new OBSHotkeyLabel;
+	// 	label->setText(QString::fromUtf8(obs_module_text("StartStreamingHotkey")));
+	// 	hw->label = label;
+	// 	streamingLayout->addRow(label, hw);
+	// 	hotkeys.push_back(hw);
+	// }
 
-	hotkey = GetHotkeyByName("VerticalCanvasDockStopStreaming");
-	if (hotkey) {
-		auto id = obs_hotkey_get_id(hotkey);
-		std::vector<obs_key_combination_t> combos = GetCombosForHotkey(id);
-		auto hn = obs_hotkey_get_name(hotkey);
-		auto hw = new OBSHotkeyWidget(this, id, hn, combos);
-		auto label = new OBSHotkeyLabel;
-		label->setText(QString::fromUtf8(obs_module_text("StopStreamingHotkey")));
-		hw->label = label;
-		streamingLayout->addRow(label, hw);
-		hotkeys.push_back(hw);
-		if (otherHotkey) {
-			hw->label->pairPartner = otherHotkey->label;
-			otherHotkey->label->pairPartner = hw->label;
-		}
-	}
+	// hotkey = GetHotkeyByName("VerticalCanvasDockStopStreaming");
+	// if (hotkey) {
+	// 	auto id = obs_hotkey_get_id(hotkey);
+	// 	std::vector<obs_key_combination_t> combos = GetCombosForHotkey(id);
+	// 	auto hn = obs_hotkey_get_name(hotkey);
+	// 	auto hw = new OBSHotkeyWidget(this, id, hn, combos);
+	// 	auto label = new OBSHotkeyLabel;
+	// 	label->setText(QString::fromUtf8(obs_module_text("StopStreamingHotkey")));
+	// 	hw->label = label;
+	// 	streamingLayout->addRow(label, hw);
+	// 	hotkeys.push_back(hw);
+	// 	if (otherHotkey) {
+	// 		hw->label->pairPartner = otherHotkey->label;
+	// 		otherHotkey->label->pairPartner = hw->label;
+	// 	}
+	// }
 
 	streamingGroup->setLayout(streamingLayout);
 
@@ -556,7 +556,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	guide_link = new QLabel(QString::fromUtf8("<a href=\"https://l.aitum.tv/vh-recording-settings\">") +
 				QString::fromUtf8(obs_module_text("ViewGuide")) + QString::fromUtf8("</a>"));
 	guide_link->setOpenExternalLinks(true);
-	record_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
+	// record_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
 
 	recordLayout->addRow(record_title_layout);
 
@@ -932,9 +932,10 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	contentLayout->addWidget(settingsPages, 1);
 
 	QHBoxLayout *bottomLayout = new QHBoxLayout;
-	const auto version =
-		new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION) + " " +
-			   QString::fromUtf8(obs_module_text("MadeBy")) + " <a href=\"https://aitum.tv\">Aitum</a>");
+	// const auto version =
+	// 	new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION) + " " +
+	// 		   QString::fromUtf8(obs_module_text("MadeBy")) + " <a href=\"https://aitum.tv\">Aitum</a>");
+	const auto version = new QLabel;
 	version->setOpenExternalLinks(true);
 	version->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 
@@ -1060,7 +1061,7 @@ void OBSBasicSettings::SetAdvancedIcon(const QIcon &icon)
 
 void OBSBasicSettings::AddServer()
 {
-	int idx = (int)servers.size();
+	// int idx = (int)servers.size();
 	auto serverGroup = new QGroupBox;
 	serverGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 	serverGroup->setStyleSheet(QString("QGroupBox{background-color: %1; padding-top: 4px;}")
@@ -1111,15 +1112,16 @@ void OBSBasicSettings::AddServer()
 	keys.push_back(key);
 
 	serverGroup->setLayout(serverLayout);
-	streamingLayout->insertRow(idx + 1, serverGroup);
+	// streamingLayout->insertRow(idx + 1, serverGroup);
 }
 
 void OBSBasicSettings::LoadSettings()
 {
-	if (!canvasDock->newer_version_available.isEmpty()) {
-		newVersion->setText(QString::fromUtf8(obs_module_text("NewVersion")).arg(canvasDock->newer_version_available));
-		newVersion->setVisible(true);
-	}
+	// if (!canvasDock->newer_version_available.isEmpty()) {
+	// 	newVersion->setText(QString::fromUtf8(obs_module_text("NewVersion")).arg(canvasDock->newer_version_available));
+	// 	newVersion->setVisible(true);
+	// }
+	
 	resolution->setCurrentText(QString::number(canvasDock->canvas_width) + "x" + QString::number(canvasDock->canvas_height));
 	bool enable = !obs_output_active(canvasDock->recordOutput) && !obs_output_active(canvasDock->virtualCamOutput);
 	for (auto it = canvasDock->streamOutputs.begin(); it != canvasDock->streamOutputs.end(); ++it) {
