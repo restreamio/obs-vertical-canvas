@@ -10,23 +10,30 @@
             }
         },
         "prebuilt": {
-            "version": "2025-05-23",
+            "_version": "2025-05-23",
+            "version": "2024-09-12",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos": "7b1448581b92c6f8d4e2f9b1b10eb318ebfc4df7255638e05bacb49b620e190d",
-                "windows-x64": "88dc7bab50542b4b58194cdd5d7e6f4b73cde7c0d1ee7a040a6d9c9df05187b1"
+                "_macos": "7b1448581b92c6f8d4e2f9b1b10eb318ebfc4df7255638e05bacb49b620e190d",
+                "macos": "c857b211ee378772994b632036e1e5befe66b37e85286cb8e3cefc1435d5220a",
+                "_windows-x64": "88dc7bab50542b4b58194cdd5d7e6f4b73cde7c0d1ee7a040a6d9c9df05187b1",
+                "windows-x64": "d4a4f194591766891ad3c0b267deec3c4b85239c8fe557273559927456aeedbb"
             }
         },
         "qt6": {
-            "version": "2025-05-23",
+            "_version": "2025-05-23",
+            "version": "2024-09-12",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built Qt6",
             "hashes": {
-                "macos": "d4945fe719d31d353dc76298f58823d7891126e33af5029f763427ea9f80bfaa",
-                "windows-x64": "bd80383dc799c0bba2f7fae793613b3fbd2cc3a3712b3d3b63b490721d187d9e"
+                "_macos": "d4945fe719d31d353dc76298f58823d7891126e33af5029f763427ea9f80bfaa",
+                "macos": "34a2de6b7f4d4d58fc5a15a4dba49a61d81a4045d0cedfc1a1f08c0dfb8047cf",
+                "_windows-x64": "bd80383dc799c0bba2f7fae793613b3fbd2cc3a3712b3d3b63b490721d187d9e",
+                "windows-x64": "4d15ce13dbb0a8a2cabcce5ae0da5e80ee589b482a61b2025378465c1da32c4f"
             },
             "debugSymbols": {
+                "_windows-x64": "dad2351a5c9cd438168e1ed8fb453a2534532252edb555f1001a5e8eb3f1bbd4",
                 "windows-x64": "dad2351a5c9cd438168e1ed8fb453a2534532252edb555f1001a5e8eb3f1bbd4"
             }
         }
