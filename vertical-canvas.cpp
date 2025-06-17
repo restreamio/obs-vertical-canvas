@@ -6164,7 +6164,7 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 	obs_data_release(s);
 
 	const char *type = nullptr;
-	obs_service_t *mainService;
+	obs_service_t *mainService = nullptr;
 
 #ifdef _WIN32
 	auto handle = os_dlopen("obs");
@@ -6223,12 +6223,12 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 				std::string mainAltKey = key;
 				// mainAltKey.append(".a1");
 
-				auto s = obs_data_create();
-				obs_data_set_string(s, "server", mainUrl.c_str());
-				obs_data_set_string(s, "key", mainAltKey.c_str());
-				obs_data_set_string(s, "bearer_token", mainAltKey.c_str());
-				obs_service_update(it->service, s);
-				obs_data_release(s);
+				auto s2 = obs_data_create();
+				obs_data_set_string(s2, "server", mainUrl.c_str());
+				obs_data_set_string(s2, "key", mainAltKey.c_str());
+				obs_data_set_string(s2, "bearer_token", mainAltKey.c_str());
+				obs_service_update(it->service, s2);
+				obs_data_release(s2);
 
 				blog(LOG_INFO, "[Vertical Canvas] Setup restream output, url=%s", mainUrl.c_str());
 			}
