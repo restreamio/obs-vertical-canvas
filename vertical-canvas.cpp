@@ -7352,7 +7352,7 @@ void CanvasDock::OnStreamStart()
 #define OBS_OUTPUT_HDR_DISABLED -9
 #endif // ! OBS_OUTPUT_HDR_DISABLED
 
-void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_server, QString stream_key)
+void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_server, QString) // stream_key
 {
 	stream_starting = false;
 	stream_stopping = false;
