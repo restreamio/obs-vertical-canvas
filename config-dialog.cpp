@@ -351,8 +351,8 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 
 	streamingVideoBitrate = new QSpinBox;
 	streamingVideoBitrate->setSuffix(" Kbps");
-	streamingVideoBitrate->setMinimum(2000);
-	streamingVideoBitrate->setMaximum(1000000);
+	streamingVideoBitrate->setMinimum(1000);
+	streamingVideoBitrate->setMaximum(20000);
 	streamingLayout->addRow(QString::fromUtf8(obs_frontend_get_locale_string("Basic.Settings.Output.VideoBitrate")),
 				streamingVideoBitrate);
 
@@ -583,8 +583,8 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 
 	recordVideoBitrate = new QSpinBox;
 	recordVideoBitrate->setSuffix(" Kbps");
-	recordVideoBitrate->setMinimum(2000);
-	recordVideoBitrate->setMaximum(1000000);
+	recordVideoBitrate->setMinimum(1000);
+	recordVideoBitrate->setMaximum(50000);
 	recordLayout->addRow(QString::fromUtf8(obs_frontend_get_locale_string("Basic.Settings.Output.VideoBitrate")),
 			     recordVideoBitrate);
 

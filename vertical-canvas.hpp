@@ -235,6 +235,8 @@ private:
 	bool multi_rtmp = false;
 	bool disable_stream_settings = false;
 	bool enable_vertical = true;
+	bool stream_starting = false;
+	bool stream_stopping = false;
 
 	QColor GetSelectionColor() const;
 	QColor GetCropColor() const;

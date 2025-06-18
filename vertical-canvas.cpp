@@ -1074,6 +1074,8 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 		record_encoder_settings = obs_data_create();
 
 	preview_disabled = obs_data_get_bool(settings, "preview_disabled");
+	if (obs_data_has_user_value(settings, "enable_vertical"))
+		enable_vertical = obs_data_get_bool(settings, "enable_vertical");
 
 	virtual_cam_warned = obs_data_get_bool(settings, "virtual_cam_warned");
 
@@ -1248,7 +1250,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	streamButton->setIcon(streamInactiveIcon);
 	streamButton->setCheckable(false); // true
 	// streamButton->setChecked(false);
-	streamButton->setText("Autostart enabled"); // TODO Make lang
+	streamButton->setText(enable_vertical ? "Autostart enabled" : "Autostart disabled"); // TODO Make lang
 	streamButton->setToolTip(QString::fromUtf8(obs_module_text("EnableDisableStreamVertical")));
 
 	//streamButton->setStyleSheet(
@@ -1403,7 +1405,10 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 		} else if (!recordButton->text().isEmpty()) {
 			recordButton->setText("");
 		}
+
 		QString streamButtonText;
+		bool streamActive = false;
+
 		for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
 			if (!obs_output_active(it->output))
 				continue;
@@ -1412,16 +1417,45 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 			video_t *output_video = obs_output_video(it->output);
 			uint64_t frameTimeNs = video_output_get_frame_time(output_video);
 			auto t = QTime::fromMSecsSinceStartOfDay((int)util_mul_div64(totalFrames, frameTimeNs, 1000000ULL));
+			
 			streamButtonText = t.toString(t.hour() ? "hh:mm:ss" : "mm:ss");
+			streamActive = true;
+
 			break;
 		}
 
+		// If we have stopping flag and still have active stream, override text
+		if (stream_stopping && !streamButtonText.isEmpty()) {
+			streamButtonText = "Stopping"; // TODO Make lang
+			streamActive = true;
+		}
+
+		// If we have starting flag & no have active stream yet, override text
+		if (stream_starting && streamButtonText.isEmpty()) {
+			streamButtonText = "Starting"; // TODO Make lang
+			streamActive = true;
+		}
+		
+		// If we no text, set default
+		if (streamButtonText.isEmpty()) {
+			streamButtonText = enable_vertical ? "Autostart enabled" : "Autostart disabled"; // TODO Make lang
+		}
+
 		// Show stream time on Stream Button
-		if (!streamButtonText.isEmpty() && streamButton->text() != streamButtonText && enable_vertical) {
-			streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,210,153);}"));
+		if (!streamButtonText.isEmpty() && streamButton->text() != streamButtonText) {
+			if (streamActive) {
+				streamButton->setIcon(streamActiveIcon);
+				streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,210,153);}"));
+			} 
+			else {
+				streamButton->setIcon(enable_vertical ? streamInactiveIcon : QIcon());
+				streamButton->setStyleSheet(QString::fromUtf8(""));
+			}
+
 			streamButton->setText(streamButtonText);
 		}
 	});
+	
 	recordDurationTimer.start();
 
 	replayStatusResetTimer.setInterval(4000);
@@ -5975,15 +6009,15 @@ void CanvasDock::StreamButtonClicked()
 		}
 	}
 
-	if (enable_vertical) {
-		streamButton->setStyleSheet(QString::fromUtf8(""));
-		streamButton->setIcon(streamInactiveIcon);
-		streamButton->setText("Autostart enabled"); // TODO Make lang
-	} else {
-		streamButton->setStyleSheet(QString::fromUtf8(""));
-		streamButton->setIcon(QIcon());
-		streamButton->setText("Autostart disabled"); // TODO Make lang
-	}
+	// if (enable_vertical) {
+	// 	streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 	streamButton->setIcon(streamInactiveIcon);
+	// 	streamButton->setText("Autostart enabled"); // TODO Make lang
+	// } else {
+	// 	streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 	streamButton->setIcon(QIcon());
+	// 	streamButton->setText("Autostart disabled"); // TODO Make lang
+	// }
 
 	//StartStream();
 }
@@ -6355,6 +6389,9 @@ obs_encoder_t *CanvasDock::GetStreamAudioEncoder()
 
 void CanvasDock::StartStream()
 {
+	stream_starting = true;
+	stream_stopping = false;
+	
 	bool to_start = false;
 	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
 		if (obs_output_active(it->output)) {
@@ -6513,7 +6550,8 @@ void CanvasDock::StartStream()
 
 void CanvasDock::StopStream()
 {
-	// streamButton->setChecked(false);
+	stream_starting = false;
+	stream_stopping = true;
 
 	bool done = false;
 	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
@@ -6526,16 +6564,16 @@ void CanvasDock::StopStream()
 	if (done)
 		SendVendorEvent("streaming_stopping");
 	
-	if (enable_vertical) {
-		streamButton->setStyleSheet(QString::fromUtf8(""));
-		streamButton->setIcon(streamInactiveIcon);
-		streamButton->setText("Autostart enabled"); // TODO Make lang
-	} else {
-		streamButton->setStyleSheet(QString::fromUtf8(""));
-		streamButton->setIcon(QIcon());
-		streamButton->setText("Autostart disabled"); // TODO Make lang
-	}
-
+	// if (enable_vertical) {
+	// 	streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 	streamButton->setIcon(streamInactiveIcon);
+	// 	streamButton->setText("Autostart enabled"); // TODO Make lang
+	// } 
+	// else {
+	// 	streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 	streamButton->setIcon(QIcon());
+	// 	streamButton->setText("Autostart disabled"); // TODO Make lang
+	// }
 
 	CheckReplayBuffer();
 }
@@ -6658,6 +6696,7 @@ obs_data_t *CanvasDock::SaveSettings()
 	obs_data_set_int(save_data, "partner_block", partnerBlockTime);
 	obs_data_set_bool(save_data, "show_scenes", !hideScenes);
 	obs_data_set_bool(save_data, "preview_disabled", preview_disabled);
+	obs_data_set_bool(save_data, "enable_vertical", enable_vertical);
 	obs_data_set_bool(save_data, "virtual_cam_warned", virtual_cam_warned);
 	obs_data_set_int(save_data, "streaming_video_bitrate", streamingVideoBitrate);
 	obs_data_set_bool(save_data, "streaming_match_main", streamingMatchMain);
@@ -7303,10 +7342,9 @@ void CanvasDock::OnReplaySaved()
 
 void CanvasDock::OnStreamStart()
 {
-	// streamButton->setChecked(true);
-	streamButton->setIcon(streamActiveIcon);
-	streamButton->setText("Starting"); // TODO Make lang
-	// streamButton->setChecked(true);
+	stream_starting = false;
+	stream_stopping = false;
+
 	CheckReplayBuffer(true);
 }
 
@@ -7316,27 +7354,33 @@ void CanvasDock::OnStreamStart()
 
 void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_server, QString stream_key)
 {
-	bool active = false;
-	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
-		if (stream_server == QString::fromUtf8(it->stream_server) && stream_key == QString::fromUtf8(it->stream_key)) {
-		} else if (obs_output_active(it->output)) {
-			active = true;
-		}
-	}
-	if (!active) {
-		// streamButton->setChecked(false);
-		if (enable_vertical) {
-			streamButton->setStyleSheet(QString::fromUtf8(""));
-			streamButton->setIcon(streamInactiveIcon);
-			streamButton->setText("Autostart enabled");  // TODO Make lang
-		}
-		else {
-			streamButton->setStyleSheet(QString::fromUtf8(""));
-			streamButton->setIcon(QIcon());
-			streamButton->setText("Autostart disabled"); // TODO Make lang
-		}
-		// streamButton->setChecked(false);
-	}
+	stream_starting = false;
+	stream_stopping = false;
+	
+	// bool active = false;
+	// for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
+	// 	if (stream_server == QString::fromUtf8(it->stream_server) && stream_key == QString::fromUtf8(it->stream_key)) {
+	// 	} 
+	// 	else if (obs_output_active(it->output)) {
+	// 		active = true;
+	// 	}
+	// }
+
+	// if (!active) {
+	// 	// streamButton->setChecked(false);
+	// 	if (enable_vertical) {
+	// 		streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 		streamButton->setIcon(streamInactiveIcon);
+	// 		streamButton->setText("Autostart enabled");  // TODO Make lang
+	// 	}
+	// 	else {
+	// 		streamButton->setStyleSheet(QString::fromUtf8(""));
+	// 		streamButton->setIcon(QIcon());
+	// 		streamButton->setText("Autostart disabled"); // TODO Make lang
+	// 	}
+	// 	// streamButton->setChecked(false);
+	// }
+
 	const char *errorDescription = "";
 
 	bool use_last_error = false;
@@ -7398,12 +7442,14 @@ void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_serve
 		QMessageBox::information(this, QString::fromUtf8(obs_frontend_get_locale_string("Output.StreamEncodeError.Title")),
 					 msg);
 
-	} else if (code != OBS_OUTPUT_SUCCESS && isVisible()) {
+	} 
+	else if (code != OBS_OUTPUT_SUCCESS && isVisible()) {
 		QMessageBox::information(this, QString::fromUtf8(obs_frontend_get_locale_string("Output.ConnectFail.Title")),
 					 QString::fromUtf8(errorDescription) + (use_last_error && !last_error.isEmpty()
 											? QString::fromUtf8("\n\n") + last_error
 											: QString::fromUtf8("")));
 	}
+
 	CheckReplayBuffer();
 	QTimer::singleShot(500, this, [this] { CheckReplayBuffer(); });
 }
