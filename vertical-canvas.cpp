@@ -594,8 +594,9 @@ void vendor_request_unpause_recording(obs_data_t *request_data, obs_data_t *resp
 	obs_data_set_bool(response_data, "success", false);
 }
 
-update_info_t *version_update_info = nullptr;
+// update_info_t *version_update_info = nullptr;
 
+/*
 bool version_info_downloaded(void *param, struct file_download_data *file)
 {
 	UNUSED_PARAMETER(param);
@@ -610,6 +611,7 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 	}
 	return true;
 }
+*/
 
 bool obs_module_load(void)
 {
@@ -710,8 +712,8 @@ void obs_module_post_load(void)
 	obs_websocket_vendor_register_request(vendor, "pause_recording", vendor_request_pause_recording, nullptr);
 	obs_websocket_vendor_register_request(vendor, "unpause_recording", vendor_request_unpause_recording, nullptr);
 
-	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", "https://api.aitum.tv/plugin/vertical",
-							version_info_downloaded, nullptr);
+	// version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", "https://api.aitum.tv/plugin/vertical",
+	//						version_info_downloaded, nullptr);
 }
 
 void obs_module_unload(void)
@@ -737,10 +739,10 @@ void obs_module_unload(void)
 		obs_websocket_vendor_unregister_request(vendor, "update_stream_server");
 	}
 	obs_frontend_remove_event_callback(frontend_event, nullptr);
-	if (version_update_info) {
-		update_info_destroy(version_update_info);
-		version_update_info = nullptr;
-	}
+	// if (version_update_info) {
+	//	update_info_destroy(version_update_info);
+	//	version_update_info = nullptr;
+	// }
 }
 
 MODULE_EXPORT const char *obs_module_description(void)
@@ -1247,7 +1249,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	streamButton = new QPushButton;
 	streamButton->setMinimumHeight(30);
 	streamButton->setObjectName(QStringLiteral("canvasStream"));
-	streamButton->setIcon(streamInactiveIcon);
+	streamButton->setIcon(enable_vertical ? streamInactiveIcon : QIcon());
 	streamButton->setCheckable(false); // true
 	// streamButton->setChecked(false);
 	streamButton->setText(enable_vertical ? "Autostart enabled" : "Autostart disabled"); // TODO Make lang
