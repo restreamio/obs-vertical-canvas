@@ -47,21 +47,10 @@ string(JSON _name GET ${buildspec} name)
 string(JSON _website GET ${buildspec} website)
 string(JSON _author GET ${buildspec} author)
 string(JSON _email GET ${buildspec} email)
-string(JSON _version_fallback GET ${buildspec} version)
+string(JSON _version GET ${buildspec} version)
 string(JSON _bundleId GET ${buildspec} platformConfig macos bundleId)
 string(JSON _windowsAppUUID GET ${buildspec} uuids windowsApp)
 # cmake-format: on
-
-# Include git version generator
-include(git-version)
-
-# Use git version if available, fallback to buildspec.json
-if(PLUGIN_GIT_VERSION)
-    set(_version ${PLUGIN_GIT_VERSION})
-else()
-    set(_version ${_version_fallback})
-    message(STATUS "Using fallback version from buildspec.json: ${_version}")
-endif()
 
 set(PLUGIN_AUTHOR ${_author})
 set(PLUGIN_WEBSITE ${_website})
