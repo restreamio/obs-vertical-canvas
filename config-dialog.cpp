@@ -932,10 +932,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	contentLayout->addWidget(settingsPages, 1);
 
 	QHBoxLayout *bottomLayout = new QHBoxLayout;
-	// const auto version =
-	// 	new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION) + " " +
-	// 		   QString::fromUtf8(obs_module_text("MadeBy")) + " <a href=\"https://aitum.tv\">Aitum</a>");
-	const auto version = new QLabel;
+	const auto version = new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION));
 	version->setOpenExternalLinks(true);
 	version->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 
