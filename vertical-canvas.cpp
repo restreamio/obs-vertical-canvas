@@ -1252,7 +1252,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	streamButton->setIcon(enable_vertical ? streamInactiveIcon : QIcon());
 	streamButton->setCheckable(false); // true
 	// streamButton->setChecked(false);
-	streamButton->setText(enable_vertical ? "Autostart enabled" : "Autostart disabled"); // TODO Make lang
+	streamButton->setText(enable_vertical ? QString::fromUtf8(obs_module_text("AutostartEnabled")) : QString::fromUtf8(obs_module_text("AutostartDisabled")));
 	streamButton->setToolTip(QString::fromUtf8(obs_module_text("EnableDisableStreamVertical")));
 
 	//streamButton->setStyleSheet(
@@ -1428,19 +1428,19 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 
 		// If we have stopping flag and still have active stream, override text
 		if (stream_stopping && !streamButtonText.isEmpty()) {
-			streamButtonText = "Stopping"; // TODO Make lang
+			streamButtonText = QString::fromUtf8(obs_module_text("StreamStopping"));
 			streamActive = true;
 		}
 
 		// If we have starting flag & no have active stream yet, override text
 		if (stream_starting && streamButtonText.isEmpty()) {
-			streamButtonText = "Starting"; // TODO Make lang
+			streamButtonText = QString::fromUtf8(obs_module_text("StreamStarting"));
 			streamActive = true;
 		}
 		
 		// If we no text, set default
 		if (streamButtonText.isEmpty()) {
-			streamButtonText = enable_vertical ? "Autostart enabled" : "Autostart disabled"; // TODO Make lang
+			streamButtonText = enable_vertical ? QString::fromUtf8(obs_module_text("AutostartEnabled")) : QString::fromUtf8(obs_module_text("AutostartDisabled"));
 		}
 
 		// Show stream time on Stream Button
@@ -6054,43 +6054,42 @@ void CanvasDock::StreamButtonMultiMenu(QMenu *menu)
 
 
 void CanvasDock::PatchMainUrl() {
-	// TODO temporary use old /live application without patching
 
-//#ifdef _WIN32
-//	auto handle = os_dlopen("obs");
-//#else
-//	auto handle = dlopen(nullptr, RTLD_LAZY);
-//#endif
-//
-//	auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
-//	if (service_func) {
-//		obs_service_t *mainService = service_func("default_service");
-//
-//		if (mainService) {
-//			auto info_func =
-//				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
-//
-//			if (info_func) {
-//				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
-//				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
-//
-//				auto addressPos = url.find(".restream.io"); // TODO Case ?
-//				auto appPos = url.rfind("/live");
-//
-//				// TODO Show error and disable autostart if addressPos is correct but appPos is absent
-//				if (addressPos != std::string::npos && appPos != std::string::npos) {
-//					url.replace(appPos, 5, "/horizontal");
-//
-//					auto s = obs_data_create();
-//					obs_data_set_string(s, "server", url.c_str());
-//					obs_service_update(mainService, s);
-//					obs_data_release(s);
-//
-//					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url changed, url=%s", url.c_str());
-//				}
-//			}
-//		}
-//	}
+#ifdef _WIN32
+	auto handle = os_dlopen("obs");
+#else
+	auto handle = dlopen(nullptr, RTLD_LAZY);
+#endif
+
+	auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
+	if (service_func) {
+		obs_service_t *mainService = service_func("default_service");
+
+		if (mainService) {
+			auto info_func =
+				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
+
+			if (info_func) {
+				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+
+				auto addressPos = url.find(".restream.io"); // TODO Case ?
+				auto appPos = url.rfind("/live");
+
+				// TODO Show error and disable autostart if addressPos is correct but appPos is absent
+				if (addressPos != std::string::npos && appPos != std::string::npos) {
+					url.replace(appPos, 5, "/horizontal");
+
+					auto s = obs_data_create();
+					obs_data_set_string(s, "server", url.c_str());
+					obs_service_update(mainService, s);
+					obs_data_release(s);
+
+					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url changed, url=%s", url.c_str());
+				}
+			}
+		}
+	}
 }
 
 void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it)
