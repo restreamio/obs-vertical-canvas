@@ -6254,6 +6254,11 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 				auto appPos = mainUrl.rfind("/live");
 				if (appPos != std::string::npos)
 					mainUrl.replace(appPos, 5, "/vertical");
+				else {
+					appPos = mainUrl.rfind("/horizontal");
+					if (appPos != std::string::npos)
+						mainUrl.replace(appPos, 11, "/vertical");
+				}
 
 				std::string mainAltKey = key;
 				// mainAltKey.append(".a1");
