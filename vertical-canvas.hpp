@@ -334,6 +334,7 @@ private:
 
 	void TryRemux(QString path);
 	void PatchMainUrl();
+	void RestoreMainUrl();
 	void StartStreamOutput(std::vector<StreamServer>::iterator it);
 	void CreateStreamOutput(std::vector<StreamServer>::iterator it);
 

@@ -1,4 +1,5 @@
 #include "vertical-canvas.hpp"
+#include <QRegularExpression>
 
 #include <list>
 
@@ -6061,6 +6062,11 @@ void CanvasDock::PatchMainUrl() {
 	auto handle = dlopen(nullptr, RTLD_LAZY);
 #endif
 
+	if (!handle) {
+		blog(LOG_ERROR, "[Vertical Canvas] Can't open OBS library to patch horizontal URL");
+		return;
+	}
+
 	auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
 	if (service_func) {
 		obs_service_t *mainService = service_func("default_service");
@@ -6073,13 +6079,26 @@ void CanvasDock::PatchMainUrl() {
 				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
 				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
 
-				auto addressPos = url.find(".restream.io"); // TODO Case ?
-				auto appPos = url.rfind("/live");
+				QString qUrl = QString::fromStdString(url);
+				bool updateFlag = false;
+				
+				// Fix broken URL: replace /horizontal.restream.io with /live.restream.io
+				QRegularExpression horizontalRegex("/horizontal\\.restream\\.io");
+				if (qUrl.contains(horizontalRegex)) {
+					qUrl.replace(horizontalRegex, "/live.restream.io");
+					updateFlag = true;
+				}
+				
+				// Replace /live at the end with /horizontal (only if .restream.io is present)
+				QRegularExpression liveEndRegex("/live$");
+				if (qUrl.contains(".restream.io") && qUrl.contains(liveEndRegex)) {
+					qUrl.replace(liveEndRegex, "/horizontal");
+					updateFlag = true;
+				}
 
-				// TODO Show error and disable autostart if addressPos is correct but appPos is absent
-				if (addressPos != std::string::npos && appPos != std::string::npos) {
-					url.replace(appPos, 5, "/horizontal");
-
+				if (updateFlag) {
+					url = qUrl.toStdString();
+					
 					auto s = obs_data_create();
 					obs_data_set_string(s, "server", url.c_str());
 					obs_service_update(mainService, s);
@@ -6090,10 +6109,61 @@ void CanvasDock::PatchMainUrl() {
 			}
 		}
 	}
+
+	os_dlclose(handle);
 }
 
-void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it)
-{
+
+void CanvasDock::RestoreMainUrl() {
+
+#ifdef _WIN32
+	auto handle = os_dlopen("obs");
+#else
+	auto handle = dlopen(nullptr, RTLD_LAZY);
+#endif
+
+	if (!handle) {
+		blog(LOG_ERROR, "[Vertical Canvas] Can't open OBS library to restore horizontal URL");
+		return;
+	}
+
+	auto service_func = (obs_service_t * (*)(const char *)) os_dlsym(handle, "obs_get_service_by_name");
+	if (service_func) {
+		obs_service_t *mainService = service_func("default_service");
+
+		if (mainService) {
+			auto info_func =
+				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
+
+			if (info_func) {
+				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+
+				QString qUrl = QString::fromStdString(url);
+				
+				// Replace /horizontal at the end with /live (only if .restream.io is present)
+				QRegularExpression horizontalEndRegex("/horizontal$");
+				if (qUrl.contains(".restream.io") && qUrl.contains(horizontalEndRegex)) {
+					qUrl.replace(horizontalEndRegex, "/live");
+					
+					url = qUrl.toStdString();
+					
+					auto s = obs_data_create();
+					obs_data_set_string(s, "server", url.c_str());
+					obs_service_update(mainService, s);
+					obs_data_release(s);
+
+					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url restored, url=%s", url.c_str());
+				}
+			}
+		}
+	}
+
+	os_dlclose(handle);
+}
+
+
+void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it) {
 	CreateStreamOutput(it);
 	const bool started_video = StartVideo();
 	if (it->settings && obs_data_get_bool(it->settings, "advanced") && obs_get_module("aitum-multistream")) {
@@ -6245,38 +6315,60 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 			}
 
 			type = "rtmp_output";
-			if (url != nullptr && strncmp(url, "ftl", 3) == 0) {
-				type = "ftl_output";
-			} else if (url != nullptr && strncmp(url, "rtmp", 4) != 0) {
-				type = "ffmpeg_mpegts_muxer";
-			} else {
-				std::string mainUrl = url;
-				auto appPos = mainUrl.rfind("/live");
-				if (appPos != std::string::npos)
-					mainUrl.replace(appPos, 5, "/vertical");
-				else {
-					appPos = mainUrl.rfind("/horizontal");
-					if (appPos != std::string::npos)
-						mainUrl.replace(appPos, 11, "/vertical");
+			if (url != nullptr) {
+				if (url != nullptr && strncmp(url, "ftl", 3) == 0) {
+					type = "ftl_output";
 				}
+				else if (url != nullptr && strncmp(url, "rtmp", 4) != 0) {
+					type = "ffmpeg_mpegts_muxer";
+				}
+				else {
+					QString qUrl = QString::fromStdString(url);
+				
+					// Parse URL format: <proto>://<address>/<app>[?params]
+					// Extract protocol and address, then form <proto>://<address>/vertical
+					QRegularExpression urlRegex("^(\\w+)://([^/]+)/.*$");
+					QRegularExpressionMatch match = urlRegex.match(qUrl);
+				
+					std::string mainUrl = url;
+					if (match.hasMatch()) {
+						QString protocol = match.captured(1);
+						QString address = match.captured(2);
+						mainUrl = QString("%1://%2/vertical").arg(protocol, address).toStdString();
+					}
 
-				std::string mainAltKey = key;
-				// mainAltKey.append(".a1");
+					std::string mainKey = key;
 
-				auto s2 = obs_data_create();
-				obs_data_set_string(s2, "server", mainUrl.c_str());
-				obs_data_set_string(s2, "key", mainAltKey.c_str());
-				obs_data_set_string(s2, "bearer_token", mainAltKey.c_str());
-				obs_service_update(it->service, s2);
-				obs_data_release(s2);
+					auto s2 = obs_data_create();
+					obs_data_set_string(s2, "server", mainUrl.c_str());
+					obs_data_set_string(s2, "key", mainKey.c_str());
+					obs_data_set_string(s2, "bearer_token", mainKey.c_str());
+					obs_service_update(it->service, s2);
+					obs_data_release(s2);
 
-				blog(LOG_INFO, "[Vertical Canvas] Setup restream output, url=%s", mainUrl.c_str());
+					// Mask key for logging: re_<id1>_<id2> -> re_<id1>_****<last 4 chars of id2>
+					QString qKey = QString::fromStdString(mainKey);
+					QString maskedKey;
+					QRegularExpression keyRegex("^(re_[^_]+_)(.+)$");
+					QRegularExpressionMatch keyMatch = keyRegex.match(qKey);
+				
+					if (keyMatch.hasMatch() && keyMatch.captured(2).length() > 4) {
+						maskedKey = QString("%1****%2").arg(keyMatch.captured(1), keyMatch.captured(2).right(4));
+					}
+					else {
+						maskedKey = "****";
+					}
+				
+					blog(LOG_INFO, "[Vertical Canvas] Setup restream output, url=%s, key=%s", mainUrl.c_str(), maskedKey.toStdString().c_str());
+				}
 			}
 		}
 		os_dlclose(handle);
-	} else {
+	}
+	else {
 		type = "rtmp_output";
 	}
+
 	if (!it->output || strcmp(type, obs_output_get_id(it->output)) != 0) {
 		if (it->output) {
 			if (obs_output_active(it->output))
@@ -7746,6 +7838,7 @@ void CanvasDock::MainStreamStop()
 	CheckReplayBuffer();
 	// if (streamingMatchMain || true)
 	StopStream();
+	RestoreMainUrl();
 }
 
 void CanvasDock::MainRecordStart()
