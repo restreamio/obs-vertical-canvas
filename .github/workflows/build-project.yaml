@@ -34,16 +34,24 @@ jobs:
 
           case "${GITHUB_EVENT_NAME}" in
             pull_request)
-              config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
               ;;
             push)
-              config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              if [[ "${GITHUB_REF_NAME}" == "master-restream" ]]; then
+                config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              else
+                config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
+              fi
               ;;
             workflow_dispatch)
-              config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              if [[ "${GITHUB_REF_NAME}" == "master-restream" ]]; then
+                config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              else
+                config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
+              fi
               ;;
             schedule)
-              config_data=('codesign:true' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
+              config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
               ;;
             *) ;;
           esac
