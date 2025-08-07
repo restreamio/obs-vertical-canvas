@@ -20,9 +20,13 @@ void audio_wrapper_destroy(void *data)
 	bfree(data);
 }
 
-bool audio_wrapper_render(void *data, uint64_t *ts_out, struct obs_source_audio_mix *audio, uint32_t mixers, size_t channels,
-			  size_t sample_rate)
-{
+bool audio_wrapper_render(void *data,
+                          uint64_t *ts_out,
+                          struct obs_source_audio_mix *audio,
+                          uint32_t mixers,
+                          size_t channels,
+                          size_t sample_rate) {
+
 	UNUSED_PARAMETER(sample_rate);
 	struct audio_wrapper_info *aw = (struct audio_wrapper_info *)data;
 	obs_source_t *source = aw->target(aw->param);

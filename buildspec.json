@@ -44,11 +44,11 @@
         }
     },
     "name": "vertical-canvas",
-    "displayName": "Vertical",
+    "displayName": "Restream Vertical",
     "version": "1.31.4",
     "author": "Aitum",
-    "website": "https://aitum.tv",
-    "email": "support@aitum.tv",
+    "website": "https://restream.io",
+    "email": "support@restream.io",
     "uuids": {
         "windowsApp": "9072EA15-785B-4BD9-8310-68CEECDA2117"
     }

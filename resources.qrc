@@ -1,5 +1,5 @@
 <RCC>
-  <qresource prefix="/aitum">
+  <qresource prefix="/verticalcanvas">
     <file>media/aitum.png</file>
     <file>media/record.svg</file>
     <file>media/recording.svg</file>
@@ -9,5 +9,6 @@
     <file>media/backtrack_on.svg</file>
     <file>media/virtual_cam_off.svg</file>
     <file>media/virtual_cam_on.svg</file>
+    <file>media/logo2.png</file>
   </qresource>
 </RCC>

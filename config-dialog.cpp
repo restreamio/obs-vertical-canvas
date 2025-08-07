@@ -50,7 +50,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	// listwidgetitem->setText(QString::fromUtf8(obs_module_text("Help")));
 
 	// listwidgetitem = new QListWidgetItem(listWidget);
-	// listwidgetitem->setIcon(QIcon(QString::fromUtf8(":/aitum/media/aitum.png")));
+	// listwidgetitem->setIcon(QIcon(QString::fromUtf8(":/verticalcanvas/media/aitum.png")));
 	// listwidgetitem->setText(QString::fromUtf8(obs_module_text("SupportButton")));
 
 	listWidget->setCurrentRow(0);
@@ -135,6 +135,26 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	// general_title_layout->addWidget(guide_link, 0, Qt::AlignRight);
 
 	generalLayout->addRow(general_title_layout);
+
+	// Add requirement text with links
+	auto requirement_text_layout = new QHBoxLayout;
+	
+	auto requirement_text = new QLabel(QString("%1 <a href=\"%2\" style=\"color: %3;\">%4</a>")
+					.arg(QString::fromUtf8(obs_module_text("RequirementText")))
+					.arg(RESTREAM_LEARN_MORE_URL)
+					.arg(palette().color(QPalette::WindowText).name())
+					.arg(QString::fromUtf8(obs_module_text("RequirementTextLearnMoreLink"))));
+	requirement_text->setOpenExternalLinks(true);
+	
+	requirement_text_layout->addWidget(requirement_text);
+	requirement_text_layout->addStretch();
+	
+	auto requirement_widget = new QWidget;
+	requirement_widget->setLayout(requirement_text_layout);
+	generalLayout->addRow(requirement_widget);
+
+	// Add spacing between requirement and settings
+	generalLayout->addItem(new QSpacerItem(0, 10, QSizePolicy::Minimum, QSizePolicy::Fixed));
 
 	resolution = new QComboBox;
 	resolution->setEditable(true);
@@ -932,9 +952,22 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	contentLayout->addWidget(settingsPages, 1);
 
 	QHBoxLayout *bottomLayout = new QHBoxLayout;
-	const auto version = new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION));
-	version->setOpenExternalLinks(true);
-	version->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+	
+	// Create version label with Restream link
+	auto versionLayout = new QHBoxLayout;
+	auto versionText = new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION) + " " + QString::fromUtf8(obs_module_text("MadeBy")));
+	QString versionLinkColor = palette().color(QPalette::WindowText).name();
+	auto restreamLink = new QLabel(QString("<a href=\"%1\" style=\"color: %2;\">Restream</a>").arg(RESTREAM_MAIN_URL).arg(versionLinkColor));
+	restreamLink->setOpenExternalLinks(true);
+	
+	versionLayout->addWidget(versionText);
+	versionLayout->addWidget(restreamLink);
+	versionLayout->addStretch();
+	versionLayout->setContentsMargins(0, 0, 0, 0);
+	
+	auto versionWidget = new QWidget;
+	versionWidget->setLayout(versionLayout);
+	versionWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 
 	newVersion = new QLabel;
 	newVersion->setProperty("themeID", "warning");
@@ -943,7 +976,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	newVersion->setOpenExternalLinks(true);
 	newVersion->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 
-	bottomLayout->addWidget(version, 1, Qt::AlignLeft);
+	bottomLayout->addWidget(versionWidget, 1, Qt::AlignLeft);
 	bottomLayout->addWidget(newVersion, 1, Qt::AlignLeft);
 	bottomLayout->addWidget(okButton, 0, Qt::AlignRight);
 	bottomLayout->addWidget(cancelButton, 0, Qt::AlignRight);

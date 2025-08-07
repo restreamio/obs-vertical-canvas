@@ -34,6 +34,9 @@
 #define VIRTUAL_CAMERA_MAIN 1
 #define VIRTUAL_CAMERA_BOTH 2
 
+#define RESTREAM_MAIN_URL "https://restream.io"
+#define RESTREAM_LEARN_MORE_URL "https://support.restream.io/en/articles/11730141-dual-output"
+
 enum class ItemHandle : uint32_t {
 	None = 0,
 	TopLeft = ITEM_TOP | ITEM_LEFT,
@@ -97,6 +100,7 @@ private:
 	bool preview_disabled = false;
 	QFrame *previewDisabledWidget;
 	QPushButton *configButton;
+	QPushButton *logoButton;
 	OBSWeakSource source;
 	obs_source_t *transitionAudioWrapper;
 	std::vector<OBSSource> transitions;
@@ -151,8 +155,6 @@ private:
 	gs_stagesurf_t *stagesurface = nullptr;
 	QPushButton *virtualCamButton;
 	QPushButton *recordButton;
-	QIcon recordActiveIcon = QIcon(":/aitum/media/recording.svg");
-	QIcon recordInactiveIcon = QIcon(":/aitum/media/record.svg");
 	QPushButton *replayButton;
 	QPushButton *replayEnableButton;
 	QCheckBox *replayEnable;
@@ -161,14 +163,17 @@ private:
 	QTimer recordDurationTimer;
 	QPushButton *streamButton;
 	QPushButton *streamButtonMulti;
-	QIcon streamActiveIcon = QIcon(":/aitum/media/streaming.svg");
-	QIcon streamInactiveIcon = QIcon(":/aitum/media/stream.svg");
 
-	QIcon replayActiveIcon = QIcon(":/aitum/media/backtrack_on.svg");
-	QIcon replayInactiveIcon = QIcon(":/aitum/media/backtrack_off.svg");
+	QIcon recordActiveIcon = QIcon(":/verticalcanvas/media/recording.svg");
+	QIcon recordInactiveIcon = QIcon(":/verticalcanvas/media/record.svg");
+	QIcon streamActiveIcon = QIcon(":/verticalcanvas/media/streaming.svg");
+	QIcon streamInactiveIcon = QIcon(":/verticalcanvas/media/stream.svg");
+	QIcon replayActiveIcon = QIcon(":/verticalcanvas/media/backtrack_on.svg");
+	QIcon replayInactiveIcon = QIcon(":/verticalcanvas/media/backtrack_off.svg");
+	QIcon virtualCamActiveIcon = QIcon(":/verticalcanvas/media/virtual_cam_on.svg");
+	QIcon virtualCamInactiveIcon = QIcon(":/verticalcanvas/media/virtual_cam_off.svg");
+	QIcon logoIcon = QIcon(":/verticalcanvas/media/logo2.png");
 
-	QIcon virtualCamActiveIcon = QIcon(":/aitum/media/virtual_cam_on.svg");
-	QIcon virtualCamInactiveIcon = QIcon(":/aitum/media/virtual_cam_off.svg");
 	QComboBox *scenesCombo = nullptr;
 	QCheckBox *linkedButton = nullptr;
 	CanvasScenesDock *scenesDock = nullptr;

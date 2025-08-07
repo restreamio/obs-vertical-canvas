@@ -668,7 +668,7 @@ void obs_module_post_load(void)
 	const auto count = obs_data_array_count(canvas);
 	if (!count) {
 		const auto canvasDock = new CanvasDock(nullptr, main_window);
-		const QString title = QString::fromUtf8(obs_module_text("Vertical"));
+		const QString title = QString::fromUtf8("Restream Vertical");
 		const auto name = "VerticalCanvasDock";
 		obs_frontend_add_dock_by_id(name, title.toUtf8().constData(), canvasDock);
 		canvas_docks.push_back(canvasDock);
@@ -679,7 +679,7 @@ void obs_module_post_load(void)
 	for (size_t i = 0; i < count; i++) {
 		const auto item = obs_data_array_item(canvas, i);
 		const auto canvasDock = new CanvasDock(item, main_window);
-		const QString title = QString::fromUtf8(obs_module_text("Vertical"));
+		const QString title = QString::fromUtf8("Restream Vertical");
 		const auto name = "VerticalCanvasDock";
 		obs_frontend_add_dock_by_id(name, title.toUtf8().constData(), canvasDock);
 		obs_data_release(item);
@@ -1475,6 +1475,20 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	connect(configButton, SIGNAL(clicked()), this, SLOT(ConfigButtonClicked()));
 	buttonRow->addWidget(configButton);
 
+	// Create logo button
+	logoButton = new QPushButton(this);
+	logoButton->setMinimumHeight(30);
+	logoButton->setIcon(logoIcon);
+	logoButton->setIconSize(QSize(20, 20));
+	logoButton->setProperty("themeID", "configIconSmall");
+	logoButton->setFlat(true);
+	logoButton->setAutoDefault(false);
+	logoButton->setToolTip("Visit Restream.io");
+	connect(logoButton, &QPushButton::clicked, []() {
+		QDesktopServices::openUrl(QUrl(RESTREAM_MAIN_URL));
+	});
+	buttonRow->addWidget(logoButton);
+
 	// auto aitumButtonGroupLayout = new QHBoxLayout();
 	// aitumButtonGroupLayout->setContentsMargins(0, 0, 0, 0);
 	// aitumButtonGroupLayout->setSpacing(0);
@@ -1500,7 +1514,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 
 	// auto aitumButton = new QPushButton;
 	// aitumButton->setMinimumHeight(30);
-	// aitumButton->setIcon(QIcon(":/aitum/media/aitum.png"));
+	// aitumButton->setIcon(QIcon(":/verticalcanvas/media/aitum.png"));
 	// aitumButton->setToolTip(QString::fromUtf8("https://aitum.tv"));
 	// aitumButton->setStyleSheet(QString::fromUtf8("QPushButton{border-top-left-radius: 0; border-bottom-left-radius: 0;}"));
 	// connect(aitumButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://aitum.tv")); });
