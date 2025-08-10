@@ -78,15 +78,15 @@ runs:
         # Log partial secret information for debugging (hex encoded to avoid masking)
         print '::group::Secret Configuration Check'
         if [[ ${MACOS_SIGNING_IDENTITY} ]] {
-          local identity_preview=$(print -n "${MACOS_SIGNING_IDENTITY:0:20}" | xxd -p -c 256)
-          print "✓ MACOS_SIGNING_IDENTITY is set (first 20 chars in hex): ${identity_preview}"
+          local identity_preview=$(print -n "${MACOS_SIGNING_IDENTITY:0:100}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_IDENTITY is set (first 100 chars in hex): ${identity_preview}"
         } else {
           print "✗ MACOS_SIGNING_IDENTITY is not set"
         }
         
         if [[ ${MACOS_SIGNING_IDENTITY_INSTALLER} ]] {
-          local installer_preview=$(print -n "${MACOS_SIGNING_IDENTITY_INSTALLER:0:20}" | xxd -p -c 256)
-          print "✓ MACOS_SIGNING_IDENTITY_INSTALLER is set (first 20 chars in hex): ${installer_preview}"
+          local installer_preview=$(print -n "${MACOS_SIGNING_IDENTITY_INSTALLER:0:100}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_IDENTITY_INSTALLER is set (first 100 chars in hex): ${installer_preview}"
         } else {
           print "✗ MACOS_SIGNING_IDENTITY_INSTALLER is not set"
         }
@@ -211,8 +211,8 @@ runs:
         # Log notarization info
         print '::group::Notarization Check'
         if [[ ${MACOS_NOTARIZATION_USERNAME} ]] {
-          local username_preview=$(print -n "${MACOS_NOTARIZATION_USERNAME:0:15}" | xxd -p -c 256)
-          print "✓ MACOS_NOTARIZATION_USERNAME is set (first 15 chars in hex): ${username_preview}"
+          local username_preview=$(print -n "${MACOS_NOTARIZATION_USERNAME:0:50}" | xxd -p -c 256)
+          print "✓ MACOS_NOTARIZATION_USERNAME is set (first 50 chars in hex): ${username_preview}"
         } else {
           print "✗ MACOS_NOTARIZATION_USERNAME is not set"
         }
