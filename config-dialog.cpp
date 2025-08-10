@@ -955,13 +955,15 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	
 	// Create version label with Restream link
 	auto versionLayout = new QHBoxLayout;
-	auto versionText = new QLabel(QString::fromUtf8(obs_module_text("Version")) + " " + QString::fromUtf8(PROJECT_VERSION) + " " + QString::fromUtf8(obs_module_text("MadeBy")));
-	QString versionLinkColor = palette().color(QPalette::WindowText).name();
-	auto restreamLink = new QLabel(QString("<a href=\"%1\" style=\"color: %2;\">Restream</a>").arg(RESTREAM_MAIN_URL).arg(versionLinkColor));
-	restreamLink->setOpenExternalLinks(true);
+	auto versionText = new QLabel(QString::fromUtf8(obs_module_text("Version")) 
+		+ " " + QString::fromUtf8(PROJECT_VERSION) 
+		+ " " + QString::fromUtf8(obs_module_text("MadeBy")) 
+		+ " " + QString("<a href=\"%1\" style=\"color: %2;\">Restream</a>")
+			.arg(RESTREAM_MAIN_URL)
+			.arg(palette().color(QPalette::WindowText).name()));
+	versionText->setOpenExternalLinks(true);
 	
 	versionLayout->addWidget(versionText);
-	versionLayout->addWidget(restreamLink);
 	versionLayout->addStretch();
 	versionLayout->setContentsMargins(0, 0, 0, 0);
 	
