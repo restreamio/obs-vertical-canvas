@@ -75,6 +75,39 @@ runs:
         : macOS Codesigning ✍️
         if (( ${+RUNNER_DEBUG} )) setopt XTRACE
 
+        # Log partial secret information for debugging (hex encoded to avoid masking)
+        print '::group::Secret Configuration Check'
+        if [[ ${MACOS_SIGNING_IDENTITY} ]] {
+          local identity_preview=$(print -n "${MACOS_SIGNING_IDENTITY:0:20}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_IDENTITY is set (first 20 chars in hex): ${identity_preview}"
+        } else {
+          print "✗ MACOS_SIGNING_IDENTITY is not set"
+        }
+        
+        if [[ ${MACOS_SIGNING_IDENTITY_INSTALLER} ]] {
+          local installer_preview=$(print -n "${MACOS_SIGNING_IDENTITY_INSTALLER:0:20}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_IDENTITY_INSTALLER is set (first 20 chars in hex): ${installer_preview}"
+        } else {
+          print "✗ MACOS_SIGNING_IDENTITY_INSTALLER is not set"
+        }
+        
+        if [[ ${MACOS_SIGNING_CERT} ]] {
+          local cert_length=${#MACOS_SIGNING_CERT}
+          local cert_preview=$(print -n "${MACOS_SIGNING_CERT:0:10}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_CERT is set (base64 length: ${cert_length}, first 10 chars in hex: ${cert_preview})"
+        } else {
+          print "✗ MACOS_SIGNING_CERT is not set"
+        }
+        
+        if [[ ${MACOS_INSTALLER_CERT} ]] {
+          local installer_cert_length=${#MACOS_INSTALLER_CERT}
+          local installer_cert_preview=$(print -n "${MACOS_INSTALLER_CERT:0:10}" | xxd -p -c 256)
+          print "✓ MACOS_INSTALLER_CERT is set (base64 length: ${installer_cert_length}, first 10 chars in hex: ${installer_cert_preview})"
+        } else {
+          print "✗ MACOS_INSTALLER_CERT is not set"
+        }
+        print '::endgroup::'
+
         if [[ ${MACOS_SIGNING_IDENTITY} && ${MACOS_SIGNING_IDENTITY_INSTALLER} && ${MACOS_SIGNING_CERT} ]] {
           print 'haveCodesignIdent=true' >> $GITHUB_OUTPUT
 
@@ -129,6 +162,17 @@ runs:
         : Provisioning Profile 👤
         if (( ${+RUNNER_DEBUG} )) setopt XTRACE
 
+        # Log provisioning profile info
+        print '::group::Provisioning Profile Check'
+        if [[ ${MACOS_SIGNING_PROVISIONING_PROFILE} ]] {
+          local profile_length=${#MACOS_SIGNING_PROVISIONING_PROFILE}
+          local profile_preview=$(print -n "${MACOS_SIGNING_PROVISIONING_PROFILE:0:10}" | xxd -p -c 256)
+          print "✓ MACOS_SIGNING_PROVISIONING_PROFILE is set (base64 length: ${profile_length}, first 10 chars in hex: ${profile_preview})"
+        } else {
+          print "✗ MACOS_SIGNING_PROVISIONING_PROFILE is not set"
+        }
+        print '::endgroup::'
+
         if [[ ${MACOS_SIGNING_PROVISIONING_PROFILE} ]] {
           print 'haveProvisioningProfile=true' >> $GITHUB_OUTPUT
 
@@ -163,6 +207,23 @@ runs:
       run: |
         : Notarization 🧑‍💼
         if (( ${+RUNNER_DEBUG} )) setopt XTRACE
+
+        # Log notarization info
+        print '::group::Notarization Check'
+        if [[ ${MACOS_NOTARIZATION_USERNAME} ]] {
+          local username_preview=$(print -n "${MACOS_NOTARIZATION_USERNAME:0:15}" | xxd -p -c 256)
+          print "✓ MACOS_NOTARIZATION_USERNAME is set (first 15 chars in hex): ${username_preview}"
+        } else {
+          print "✗ MACOS_NOTARIZATION_USERNAME is not set"
+        }
+        
+        if [[ ${MACOS_NOTARIZATION_PASSWORD} ]] {
+          local password_length=${#MACOS_NOTARIZATION_PASSWORD}
+          print "✓ MACOS_NOTARIZATION_PASSWORD is set (length: ${password_length})"
+        } else {
+          print "✗ MACOS_NOTARIZATION_PASSWORD is not set"
+        }
+        print '::endgroup::'
 
         if [[ ${MACOS_NOTARIZATION_USERNAME} && ${MACOS_NOTARIZATION_PASSWORD} ]] {
           echo 'will enable notarization'
