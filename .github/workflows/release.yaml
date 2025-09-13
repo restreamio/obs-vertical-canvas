@@ -1,0 +1,143 @@
+name: Create Release
+run-name: Create release from ${{ github.ref_name }} 🚀
+on:
+  push:
+    branches:
+      - master-restream
+permissions:
+  contents: write
+jobs:
+  build-project:
+    name: Build Project 🧱
+    uses: ./.github/workflows/build-project.yaml
+    secrets: inherit
+    permissions:
+      contents: read
+
+  create-release:
+    name: Create Release 🛫
+    runs-on: ubuntu-22.04
+    needs: build-project
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Version from buildspec.json 📝
+        id: version
+        run: |
+          : Get Version from buildspec.json 📝
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          
+          version=$(jq -r '.version' buildspec.json)
+          name=$(jq -r '.name' buildspec.json)
+          
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "name=${name}" >> $GITHUB_OUTPUT
+          echo "tag=v${version}" >> $GITHUB_OUTPUT
+
+      - name: Check if Release Already Exists 🔍
+        id: check_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : Check if Release Already Exists 🔍
+          if gh release view "${{ steps.version.outputs.tag }}" --repo="${{ github.repository }}" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release ${{ steps.version.outputs.tag }} already exists, skipping..."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release ${{ steps.version.outputs.tag }} does not exist, creating..."
+          fi
+
+      - name: Download Build Artifacts 📥
+        if: steps.check_release.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        id: download
+
+      - name: Rename Files 🏷️
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          : Rename Files 🏷️
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          shopt -s extglob
+          shopt -s nullglob
+
+          root_dir="$(pwd)"
+          commit_hash="${GITHUB_SHA:0:9}"
+
+          variants=(
+            'windows-x64;zip|exe'
+            'macos-universal;tar.xz|pkg'
+            'ubuntu-22.04-x86_64;tar.xz|deb|ddeb'
+            'sources;tar.xz'
+          )
+
+          for variant_data in "${variants[@]}"; do
+            IFS=';' read -r variant suffix <<< "${variant_data}"
+
+            candidates=(*-${variant}-${commit_hash}/@(*|*-dbgsym).@(${suffix}))
+
+            for candidate in "${candidates[@]}"; do
+              mv "${candidate}" "${root_dir}"
+            done
+          done
+
+      - name: Generate Checksums 🪪
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          : Generate Checksums 🪪
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          shopt -s extglob
+
+          echo "### Checksums" > ${{ github.workspace }}/CHECKSUMS.txt
+          echo "" >> ${{ github.workspace }}/CHECKSUMS.txt
+          for file in ${{ github.workspace }}/@(*.exe|*.deb|*.ddeb|*.pkg|*.tar.xz|*.zip); do
+            if [[ -f "${file}" ]]; then
+              echo "    ${file##*/}: $(sha256sum "${file}" | cut -d " " -f 1)" >> ${{ github.workspace }}/CHECKSUMS.txt
+            fi
+          done
+
+      - name: Create Release Notes 📋
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          : Create Release Notes 📋
+          cat > ${{ github.workspace }}/RELEASE_NOTES.md << EOF
+          ## ${{ steps.version.outputs.name }} ${{ steps.version.outputs.version }}
+
+          ### Downloads
+          - **Windows**: ${{ steps.version.outputs.name }}-${{ steps.version.outputs.version }}-windows-x64-Installer.exe
+          - **macOS**: ${{ steps.version.outputs.name }}-${{ steps.version.outputs.version }}-macos-universal.pkg
+          - **Ubuntu/Debian**: ${{ steps.version.outputs.name }}-${{ steps.version.outputs.version }}-ubuntu-22.04-x86_64.deb
+
+          ### Installation
+          1. Download the appropriate installer for your platform
+          2. Close OBS Studio if it's running
+          3. Run the installer
+          4. Restart OBS Studio
+
+          EOF
+          
+          echo "" >> ${{ github.workspace }}/RELEASE_NOTES.md
+          cat ${{ github.workspace }}/CHECKSUMS.txt >> ${{ github.workspace }}/RELEASE_NOTES.md
+
+      - name: Create GitHub Release 🛫
+        if: steps.check_release.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }} ${{ steps.version.outputs.version }}
+          body_path: ${{ github.workspace }}/RELEASE_NOTES.md
+          files: |
+            ${{ github.workspace }}/*.exe
+            ${{ github.workspace }}/*.zip
+            ${{ github.workspace }}/*.pkg
+            ${{ github.workspace }}/*.deb
+            ${{ github.workspace }}/*.ddeb
+            ${{ github.workspace }}/*.tar.xz

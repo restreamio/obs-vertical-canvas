@@ -10,6 +10,7 @@
 #include <qlistwidget.h>
 #include <qspinbox.h>
 #include <QFormLayout>
+#include <QPushButton>
 #include <QRadioButton>
 
 #include "hotkey-edit.hpp"
@@ -30,6 +31,7 @@ class OBSBasicSettings : public QDialog {
 private:
 	CanvasDock *canvasDock;
 	QLabel *newVersion;
+	QPushButton *downloadUpdateButton;
 	QListWidget *listWidget;
 	QComboBox *resolution;
 	QCheckBox *showScenes;
