@@ -1,0 +1,29 @@
+---
+name: Uplolad s3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    name: Test s3 upload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        timeout-minutes: 1
+        with:
+          role-to-assume: arn:aws:iam::318522186253:role/github-public-oidc-role
+          aws-region: us-east-1
+
+      - name: Prepare and upload s3 file
+        timeout-minutes: 15
+        run: |
+          NOW=$(date +"%Y%m%d-%H%M%S")
+          echo "test" > "test-${NOW}.html"
+          aws s3 cp test-${NOW}.html "s3://restream-cloudfront-vertical-plugin/test/" --no-progress
+  
