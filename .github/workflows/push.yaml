@@ -12,6 +12,7 @@ on:
       - '*'
 permissions:
   contents: write
+  id-token: write # fetch OIDC token from AWS IAM
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.ref }}'
   cancel-in-progress: ${{ github.ref_type == 'tag' }}
@@ -29,3 +30,89 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
+  
+  upload-to-s3:
+    name: Upload to S3 ☁️
+    needs: build-project
+    if: github.ref == 'refs/heads/master-restream'
+    runs-on: ubuntu-22.04
+    env:
+      S3_BUCKET_NAME: restream-cloudfront-vertical-plugin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Plugin Info
+        id: plugin-info
+        run: |
+          PLUGIN_NAME=$(jq -r '.name' buildspec.json)
+          PLUGIN_VERSION=$(jq -r '.version' buildspec.json)
+          COMMIT_HASH="${GITHUB_SHA:0:9}"
+          
+          echo "pluginName=${PLUGIN_NAME}" >> $GITHUB_OUTPUT
+          echo "pluginVersion=${PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "commitHash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        timeout-minutes: 1
+        with:
+          role-to-assume: arn:aws:iam::318522186253:role/github-public-oidc-role
+          aws-region: us-east-1
+
+      - name: Upload Windows Build to S3
+        run: |
+          PLUGIN_NAME="${{ steps.plugin-info.outputs.pluginName }}"
+          PLUGIN_VERSION="${{ steps.plugin-info.outputs.pluginVersion }}"
+          COMMIT_HASH="${{ steps.plugin-info.outputs.commitHash }}"
+          
+          # Find Windows installer
+          WINDOWS_FILE=$(find artifacts -name "*-windows-x64-Installer.exe" -type f | head -1)
+          if [ -n "$WINDOWS_FILE" ]; then
+            # Upload with fixed name
+            aws s3 cp "$WINDOWS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/vertical-canvas-windows.exe" --no-progress
+            # Upload with versioned name
+            aws s3 cp "$WINDOWS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/vertical-canvas-${PLUGIN_VERSION}-windows-x64-${COMMIT_HASH}.exe" --no-progress
+          fi
+
+      - name: Upload macOS Build to S3
+        run: |
+          PLUGIN_NAME="${{ steps.plugin-info.outputs.pluginName }}"
+          PLUGIN_VERSION="${{ steps.plugin-info.outputs.pluginVersion }}"
+          COMMIT_HASH="${{ steps.plugin-info.outputs.commitHash }}"
+          
+          # Find macOS package
+          MACOS_FILE=$(find artifacts -name "*-macos-universal.pkg" -type f | head -1)
+          if [ -n "$MACOS_FILE" ]; then
+            # Upload with fixed name
+            aws s3 cp "$MACOS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/vertical-canvas-macos.pkg" --no-progress
+            # Upload with versioned name
+            aws s3 cp "$MACOS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/vertical-canvas-${PLUGIN_VERSION}-macos-universal-${COMMIT_HASH}.pkg" --no-progress
+          fi
+
+      - name: Create and Upload Version Info JSON
+        run: |
+          PLUGIN_VERSION="${{ steps.plugin-info.outputs.pluginVersion }}"
+          COMMIT_HASH="${{ steps.plugin-info.outputs.commitHash }}"
+          
+          # Create JSON file with version info
+          cat > version.json <<EOF
+          {
+            "version": "${PLUGIN_VERSION}",
+            "commit": "${COMMIT_HASH}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "downloads": {
+              "windows": "vertical-canvas-${PLUGIN_VERSION}-windows-x64-${COMMIT_HASH}.exe",
+              "macos": "vertical-canvas-${PLUGIN_VERSION}-macos-universal-${COMMIT_HASH}.pkg"
+            }
+          }
+          EOF
+          
+          # Upload JSON file
+          aws s3 cp version.json "s3://${{ env.S3_BUCKET_NAME }}/vertical-canvas-version.json" --no-progress --cache-control "max-age=0"

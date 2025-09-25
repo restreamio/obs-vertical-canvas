@@ -606,29 +606,31 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 	if (!file || !file->buffer.num)
 		return true;
 	
-	// Parse GitHub API response
+	// Parse S3 JSON response
 	obs_data_t *json = obs_data_create_from_json((const char *)file->buffer.array);
 	if (!json)
 		return true;
 	
-	// GitHub API returns an array of releases, get the first (latest) one
-	if (obs_data_has_user_value(json, "tag_name")) {
-		// Direct release endpoint response
-		const char *tag_name = obs_data_get_string(json, "tag_name");
-		const char *name = obs_data_get_string(json, "name");
+	// S3 JSON format: {"version": "1.0.0", "commit": "abc123", "downloads": {...}}
+	if (obs_data_has_user_value(json, "version")) {
+		const char *version = obs_data_get_string(json, "version");
+		const char *commit = obs_data_get_string(json, "commit");
+		obs_data_t *downloads = obs_data_get_obj(json, "downloads");
 		
-		// Create a simplified response for ApiInfo
+		// Create a response for ApiInfo with download info
 		obs_data_t *api_response = obs_data_create();
 		obs_data_t *data = obs_data_create();
 		
-		// Remove 'v' prefix if present
-		std::string version_str(tag_name);
-		if (version_str.length() > 0 && version_str[0] == 'v') {
-			version_str = version_str.substr(1);
+		obs_data_set_string(data, "version", version);
+		obs_data_set_string(data, "commit", commit);
+		
+		// Add download filenames
+		if (downloads) {
+			obs_data_set_string(data, "windows_file", obs_data_get_string(downloads, "windows"));
+			obs_data_set_string(data, "macos_file", obs_data_get_string(downloads, "macos"));
+			obs_data_release(downloads);
 		}
 		
-		obs_data_set_string(data, "version", version_str.c_str());
-		obs_data_set_string(data, "name", name);
 		obs_data_set_obj(api_response, "data", data);
 		
 		std::string json_str = obs_data_get_json(api_response);
@@ -749,10 +751,9 @@ void obs_module_post_load(void)
 	obs_websocket_vendor_register_request(vendor, "pause_recording", vendor_request_pause_recording, nullptr);
 	obs_websocket_vendor_register_request(vendor, "unpause_recording", vendor_request_unpause_recording, nullptr);
 
-	// Check for updates from GitHub releases
-	// Using the latest release endpoint which returns a single release object
+	// Check for updates from S3
 	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", 
-							"https://api.github.com/repos/restreamio/obs-vertical-canvas/releases/latest",
+							"https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/vertical-canvas-version.json",
 							version_info_downloaded, nullptr);
 }
 
@@ -8148,24 +8149,18 @@ void CanvasDock::ApiInfo(QString info)
 			newer_version_available = QString::fromUtf8(version);
 			configButton->setStyleSheet(QString::fromUtf8("background: rgb(192,128,0);"));
 			
-			// Extract download URL from GitHub release data
-			if (obs_data_has_user_value(data_obj, "name")) {
-				auto release_name = obs_data_get_string(data_obj, "name");
-				
-				// Construct download URL based on platform
+			// Extract download URL from S3 data
+			const char *filename = nullptr;
 #ifdef _WIN32
-				download_url = QString("https://github.com/restreamio/obs-vertical-canvas/releases/download/v%1/%2-%1-windows-x64-Installer.exe")
-					.arg(QString::fromUtf8(version))
-					.arg(QString::fromUtf8(release_name));
+			filename = obs_data_get_string(data_obj, "windows_file");
 #elif __APPLE__
-				download_url = QString("https://github.com/restreamio/obs-vertical-canvas/releases/download/v%1/%2-%1-macos-universal.pkg")
-					.arg(QString::fromUtf8(version))
-					.arg(QString::fromUtf8(release_name));
-#else // Linux
-				download_url = QString("https://github.com/restreamio/obs-vertical-canvas/releases/download/v%1/%2-%1-ubuntu-22.04-x86_64.deb")
-					.arg(QString::fromUtf8(version))
-					.arg(QString::fromUtf8(release_name));
+			filename = obs_data_get_string(data_obj, "macos_file");
 #endif
+			
+			if (filename && strlen(filename) > 0) {
+				// Construct download URL for S3
+				download_url = QString("https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/%1")
+					.arg(QString::fromUtf8(filename));
 			}
 		}
 	}

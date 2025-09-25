@@ -91,6 +91,7 @@ class CanvasDock : public QFrame {
 	friend class SourceTreeModel;
 	friend class OBSBasicSettings;
 	friend class OBSProjector;
+	friend bool download_complete_callback(void *param, struct file_download_data *file);
 
 private:
 	QPointer<QAction> action;
