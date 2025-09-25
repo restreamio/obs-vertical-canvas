@@ -37,7 +37,7 @@ jobs:
     if: github.ref == 'refs/heads/master-restream'
     runs-on: ubuntu-22.04
     env:
-      S3_BUCKET_NAME: restream-cloudfront-vertical-plugin
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
     steps:
       - uses: actions/checkout@v4
         with:
