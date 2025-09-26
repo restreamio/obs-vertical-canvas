@@ -614,24 +614,26 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 	if (!json)
 		return true;
 	
-	// S3 JSON format: {"version": "1.0.0", "commit": "abc123", "downloads": {...}}
+	// S3 JSON format: {"version": "1.0.1", "commit": "abc123", "windows_file": "...", "macos_file": "..."}
 	if (obs_data_has_user_value(json, "version")) {
 		const char *version = obs_data_get_string(json, "version");
 		const char *commit = obs_data_get_string(json, "commit");
-		obs_data_t *downloads = obs_data_get_obj(json, "downloads");
+		const char *windows_file = obs_data_get_string(json, "windows_file");
+		const char *macos_file = obs_data_get_string(json, "macos_file");
 		
-		// Create a response for ApiInfo with download info
+		// Create a response for UpdateInfoReady with download info
 		obs_data_t *api_response = obs_data_create();
 		obs_data_t *data = obs_data_create();
 		
 		obs_data_set_string(data, "version", version);
 		obs_data_set_string(data, "commit", commit);
 		
-		// Add download filenames
-		if (downloads) {
-			obs_data_set_string(data, "windows_file", obs_data_get_string(downloads, "windows"));
-			obs_data_set_string(data, "macos_file", obs_data_get_string(downloads, "macos"));
-			obs_data_release(downloads);
+		// Add download filenames directly from root JSON
+		if (windows_file) {
+			obs_data_set_string(data, "windows_file", windows_file);
+		}
+		if (macos_file) {
+			obs_data_set_string(data, "macos_file", macos_file);
 		}
 		
 		obs_data_set_obj(api_response, "data", data);

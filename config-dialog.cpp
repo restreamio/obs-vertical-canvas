@@ -987,6 +987,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	bottomLayout->addWidget(versionWidget, 1, Qt::AlignLeft);
 	bottomLayout->addWidget(newVersion, 1, Qt::AlignLeft);
 	bottomLayout->addWidget(downloadUpdateButton, 0, Qt::AlignCenter);
+	bottomLayout->addSpacing(20);  // Add spacing between Download Update and OK buttons
 	bottomLayout->addWidget(okButton, 0, Qt::AlignRight);
 	bottomLayout->addWidget(cancelButton, 0, Qt::AlignRight);
 
