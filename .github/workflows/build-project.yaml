@@ -171,6 +171,7 @@ jobs:
     name: Build for Ubuntu 🐧
     runs-on: ubuntu-24.04
     needs: check-event
+    if: false  # Disabled: Ubuntu build is slow and not distributed to users
     defaults:
       run:
         shell: bash
