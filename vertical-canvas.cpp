@@ -112,9 +112,9 @@ static void save_canvas()
 	obs_data_set_array(config, "canvas", canvas);
 	obs_data_array_release(canvas);
 	if (obs_data_save_json_safe(config, path, "tmp", "bak")) {
-		blog(LOG_INFO, "[Vertical Canvas] Saved settings");
+		blog(LOG_INFO, "[Vertical Plugin] Saved settings");
 	} else {
-		blog(LOG_ERROR, "[Vertical Canvas] Failed saving settings");
+		blog(LOG_ERROR, "[Vertical Plugin] Failed saving settings");
 	}
 	obs_data_release(config);
 	bfree(path);
@@ -658,11 +658,11 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 bool obs_module_load(void)
 {
 	if (obs_get_version() < MAKE_SEMANTIC_VERSION(30, 0, 0)) {
-		blog(LOG_ERROR, "[Vertical Canvas] loading version %s failed, OBS version %s is to low", PROJECT_VERSION,
+		blog(LOG_ERROR, "[Vertical Plugin] loading version %s failed, OBS version %s is to low", PROJECT_VERSION,
 		     obs_get_version_string());
 		return false;
 	}
-	blog(LOG_INFO, "[Vertical Canvas] loaded version %s", PROJECT_VERSION);
+	blog(LOG_INFO, "[Vertical Plugin] loaded version %s", PROJECT_VERSION);
 	obs_frontend_add_event_callback(frontend_event, nullptr);
 
 	obs_register_source(&audio_wrapper_source);
@@ -694,9 +694,9 @@ void obs_module_post_load(void)
 	bfree(path);
 	if (!config) {
 		config = obs_data_create();
-		blog(LOG_WARNING, "[Vertical Canvas] No configuration file loaded");
+		blog(LOG_WARNING, "[Vertical Plugin] No configuration file loaded");
 	} else {
-		blog(LOG_INFO, "[Vertical Canvas] Loaded configuration file");
+		blog(LOG_INFO, "[Vertical Plugin] Loaded configuration file");
 	}
 
 	const auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
@@ -704,7 +704,7 @@ void obs_module_post_load(void)
 	obs_data_release(config);
 	if (!canvas) {
 		canvas = obs_data_array_create();
-		blog(LOG_WARNING, "[Vertical Canvas] no canvas found in configuration");
+		blog(LOG_WARNING, "[Vertical Plugin] no canvas found in configuration");
 	}
 	const auto count = obs_data_array_count(canvas);
 	if (!count) {
@@ -714,7 +714,7 @@ void obs_module_post_load(void)
 		obs_frontend_add_dock_by_id(name, title.toUtf8().constData(), canvasDock);
 		canvas_docks.push_back(canvasDock);
 		obs_data_array_release(canvas);
-		blog(LOG_INFO, "[Vertical Canvas] New Canvas created");
+		blog(LOG_INFO, "[Vertical Plugin] New Canvas created");
 		return;
 	}
 	for (size_t i = 0; i < count; i++) {
@@ -755,8 +755,8 @@ void obs_module_post_load(void)
 	obs_websocket_vendor_register_request(vendor, "unpause_recording", vendor_request_unpause_recording, nullptr);
 
 	// Check for updates
-	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", 
-							RESTREAM_PLUGIN_BASE_URL "/vertical-canvas-version.json",
+	version_update_info = update_info_create_single("[Vertical Plugin]", "OBS", 
+							RESTREAM_PLUGIN_BASE_URL "/obs-vertical-plugin-version.json",
 							version_info_downloaded, nullptr);
 }
 
@@ -1056,7 +1056,6 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 		obs_data_set_bool(settings, "backtrack", true);
 		first_time = true;
 	}
-	partnerBlockTime = (time_t)obs_data_get_int(settings, "partner_block");
 	hideScenes = !obs_data_get_bool(settings, "show_scenes");
 	canvas_width = (uint32_t)obs_data_get_int(settings, "width");
 	canvas_height = (uint32_t)obs_data_get_int(settings, "height");
@@ -1826,7 +1825,7 @@ config_t *get_user_config(void)
 	if (!get_user_config_func) {
 		if (obs_get_version() < MAKE_SEMANTIC_VERSION(31, 0, 0)) {
 			get_user_config_func = obs_frontend_get_global_config;
-			blog(LOG_INFO, "[Vertical Canvas] use global config");
+			blog(LOG_INFO, "[Vertical Plugin] use global config");
 		} else {
 #ifdef __APPLE__
 			auto handle = os_dlopen("obs-frontend-api.dylib");
@@ -1837,7 +1836,7 @@ config_t *get_user_config(void)
 				get_user_config_func = (config_t * (*)(void)) os_dlsym(handle, "obs_frontend_get_user_config");
 				os_dlclose(handle);
 				if (get_user_config_func)
-					blog(LOG_INFO, "[Vertical Canvas] use user config");
+					blog(LOG_INFO, "[Vertical Plugin] use user config");
 			}
 		}
 	}
@@ -5604,7 +5603,7 @@ void CanvasDock::ShowNoReplayOutputError()
 	if (astrcmpi(mode, "Advanced") == 0) {
 		const char *recType = config_get_string(config, "AdvOut", "RecType");
 		if (astrcmpi(recType, "FFmpeg") == 0) {
-			blog(LOG_WARNING, "[Vertical Canvas] error starting backtrack: custom ffmpeg");
+			blog(LOG_WARNING, "[Vertical Plugin] error starting backtrack: custom ffmpeg");
 			if (isVisible()) {
 				QMessageBox::warning(this, QString::fromUtf8(obs_module_text("backtrackStartFail")),
 						     QString::fromUtf8(obs_module_text("backtrackCustomFfmpeg")));
@@ -5612,7 +5611,7 @@ void CanvasDock::ShowNoReplayOutputError()
 			return;
 		}
 	}
-	blog(LOG_WARNING, "[Vertical Canvas] error starting backtrack: no replay buffer found");
+	blog(LOG_WARNING, "[Vertical Plugin] error starting backtrack: no replay buffer found");
 	if (isVisible()) {
 		QMessageBox::warning(this, QString::fromUtf8(obs_module_text("backtrackStartFail")),
 				     QString::fromUtf8(obs_module_text("backtrackNoReplayBuffer")));
@@ -5666,7 +5665,7 @@ void CanvasDock::StartReplayBuffer()
 		}
 		if (!enc) {
 			obs_output_release(replay_output);
-			blog(LOG_WARNING, "[Vertical Canvas] error starting backtrack: no video encoder found");
+			blog(LOG_WARNING, "[Vertical Plugin] error starting backtrack: no video encoder found");
 			return;
 		}
 
@@ -6120,7 +6119,7 @@ void CanvasDock::PatchMainUrl() {
 #endif
 
 	if (!handle) {
-		blog(LOG_ERROR, "[Vertical Canvas] Can't open OBS library to patch horizontal URL");
+		blog(LOG_ERROR, "[Vertical Plugin] Can't open OBS library to patch horizontal URL");
 		return;
 	}
 
@@ -6161,7 +6160,7 @@ void CanvasDock::PatchMainUrl() {
 					obs_service_update(mainService, s);
 					obs_data_release(s);
 
-					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url changed, url=%s", url.c_str());
+					blog(LOG_INFO, "[Vertical Plugin] Horizontal stream url changed, url=%s", url.c_str());
 				}
 			}
 		}
@@ -6180,7 +6179,7 @@ void CanvasDock::RestoreMainUrl() {
 #endif
 
 	if (!handle) {
-		blog(LOG_ERROR, "[Vertical Canvas] Can't open OBS library to restore horizontal URL");
+		blog(LOG_ERROR, "[Vertical Plugin] Can't open OBS library to restore horizontal URL");
 		return;
 	}
 
@@ -6210,7 +6209,7 @@ void CanvasDock::RestoreMainUrl() {
 					obs_service_update(mainService, s);
 					obs_data_release(s);
 
-					blog(LOG_INFO, "[Vertical Canvas] Horizontal stream url restored, url=%s", url.c_str());
+					blog(LOG_INFO, "[Vertical Plugin] Horizontal stream url restored, url=%s", url.c_str());
 				}
 			}
 		}
@@ -6224,7 +6223,7 @@ void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it) {
 	CreateStreamOutput(it);
 	const bool started_video = StartVideo();
 	if (it->settings && obs_data_get_bool(it->settings, "advanced") && obs_get_module("aitum-multistream")) {
-		blog(LOG_INFO, "[Vertical Canvas] Start output '%s' with multistream advanced settings", it->name.c_str());
+		blog(LOG_INFO, "[Vertical Plugin] Start output '%s' with multistream advanced settings", it->name.c_str());
 		auto venc_name = obs_data_get_string(it->settings, "video_encoder");
 		if (!venc_name || venc_name[0] == '\0') {
 			//use main encoder
@@ -6296,7 +6295,7 @@ void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it) {
 			obs_output_set_audio_encoder(it->output, aenc, 0);
 		}
 	} else {
-		blog(LOG_INFO, "[Vertical Canvas] Start output '%s'", it->name.c_str());
+		blog(LOG_INFO, "[Vertical Plugin] Start output '%s'", it->name.c_str());
 		obs_output_set_video_encoder(it->output, GetStreamVideoEncoder());
 		obs_output_set_audio_encoder(it->output, GetStreamAudioEncoder(), 0);
 	}
@@ -6351,7 +6350,7 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 			type = type_func(it->service);
 		}
 
-		blog(LOG_INFO, "[Vertical Canvas] Stream type=%s (should be null for restream alt output)", type ? type : "null");
+		blog(LOG_INFO, "[Vertical Plugin] Stream type=%s (should be null for restream alt output)", type ? type : "null");
 
 		if (!type) {
 			const char *url = nullptr;
@@ -6416,7 +6415,7 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 						maskedKey = "****";
 					}
 				
-					blog(LOG_INFO, "[Vertical Canvas] Setup restream output, url=%s, key=%s", mainUrl.c_str(), maskedKey.toStdString().c_str());
+					blog(LOG_INFO, "[Vertical Plugin] Setup restream output, url=%s, key=%s", mainUrl.c_str(), maskedKey.toStdString().c_str());
 				}
 			}
 		}
@@ -6557,7 +6556,7 @@ void CanvasDock::StartStream()
 	}
 
 	if (!to_start) {
-		blog(LOG_WARNING, "[Vertical Canvas] No stream output to start");
+		blog(LOG_WARNING, "[Vertical Plugin] No stream output to start");
 		QMetaObject::invokeMethod(this, "OnStreamStop", Q_ARG(int, OBS_OUTPUT_SUCCESS),
 					  Q_ARG(QString, QString::fromUtf8("")), Q_ARG(QString, QString::fromUtf8("")),
 					  Q_ARG(QString, QString::fromUtf8("")));
@@ -6586,7 +6585,7 @@ void CanvasDock::StartStream()
 
 		CreateStreamOutput(it);
 		if (it->settings && obs_data_get_bool(it->settings, "advanced") && obs_get_module("aitum-multistream")) {
-			blog(LOG_INFO, "[Vertical Canvas] Start output '%s' with multistream advanced settings", it->name.c_str());
+			blog(LOG_INFO, "[Vertical Plugin] Start output '%s' with multistream advanced settings", it->name.c_str());
 			auto venc_name = obs_data_get_string(it->settings, "video_encoder");
 			if (!venc_name || venc_name[0] == '\0') {
 				//use main encoder
@@ -6662,7 +6661,7 @@ void CanvasDock::StartStream()
 				obs_output_set_audio_encoder(it->output, aenc, 0);
 			}
 		} else {
-			blog(LOG_INFO, "[Vertical Canvas] Start output '%s'", it->name.c_str());
+			blog(LOG_INFO, "[Vertical Plugin] Start output '%s'", it->name.c_str());
 			if (!video_encoder)
 				video_encoder = GetStreamVideoEncoder();
 			obs_output_set_video_encoder(it->output, video_encoder);
@@ -6848,7 +6847,6 @@ obs_data_t *CanvasDock::SaveSettings()
 
 	obs_data_set_int(save_data, "width", canvas_width);
 	obs_data_set_int(save_data, "height", canvas_height);
-	obs_data_set_int(save_data, "partner_block", partnerBlockTime);
 	obs_data_set_bool(save_data, "show_scenes", !hideScenes);
 	obs_data_set_bool(save_data, "preview_disabled", preview_disabled);
 	obs_data_set_bool(save_data, "enable_vertical", enable_vertical);
@@ -7445,9 +7443,9 @@ void CanvasDock::HandleRecordError(int code, QString last_error)
 {
 	if (code != OBS_OUTPUT_SUCCESS) {
 		if (!last_error.isEmpty()) {
-			blog(LOG_WARNING, "[Vertical Canvas] record stop error %s", last_error.toUtf8().constData());
+			blog(LOG_WARNING, "[Vertical Plugin] record stop error %s", last_error.toUtf8().constData());
 		} else {
-			blog(LOG_WARNING, "[Vertical Canvas] record stop error %i", code);
+			blog(LOG_WARNING, "[Vertical Plugin] record stop error %i", code);
 		}
 	}
 	if (code == OBS_OUTPUT_UNSUPPORTED && isVisible()) {
@@ -7584,9 +7582,9 @@ void CanvasDock::OnStreamStop(int code, QString last_error, QString stream_serve
 	}
 	if (code != OBS_OUTPUT_SUCCESS) {
 		if (use_last_error && !last_error.isEmpty()) {
-			blog(LOG_WARNING, "[Vertical Canvas] stream stop error %s", last_error.toUtf8().constData());
+			blog(LOG_WARNING, "[Vertical Plugin] stream stop error %s", last_error.toUtf8().constData());
 		} else {
-			blog(LOG_WARNING, "[Vertical Canvas] stream stop error %i", code);
+			blog(LOG_WARNING, "[Vertical Plugin] stream stop error %i", code);
 		}
 	}
 	if (encode_error) {
@@ -7871,7 +7869,7 @@ QIcon CanvasDock::GetGroupIcon() const
 
 void CanvasDock::MainStreamStarting()
 {
-	blog(LOG_INFO, "[Vertical Canvas] Main stream starting");
+	blog(LOG_INFO, "[Vertical Plugin] Main stream starting");
 
 	if (enable_vertical)
 		PatchMainUrl();
@@ -7879,7 +7877,7 @@ void CanvasDock::MainStreamStarting()
 
 void CanvasDock::MainStreamStart()
 {
-	blog(LOG_INFO, "[Vertical Canvas] Main stream start");
+	blog(LOG_INFO, "[Vertical Plugin] Main stream start");
 
 	CheckReplayBuffer(true);
 
@@ -7890,7 +7888,7 @@ void CanvasDock::MainStreamStart()
 
 void CanvasDock::MainStreamStop()
 {
-	blog(LOG_INFO, "[Vertical Canvas] Main stream stop");
+	blog(LOG_INFO, "[Vertical Plugin] Main stream stop");
 
 	CheckReplayBuffer();
 	// if (streamingMatchMain || true)
@@ -8672,11 +8670,11 @@ bool download_complete_callback(void *param, struct file_download_data *file)
 	QString filename;
 	
 #ifdef _WIN32
-	filename = QString("vertical-canvas-update-%1.exe").arg(((CanvasDock*)param)->newer_version_available);
+	filename = QString("obs-vertical-plugin-%1.exe").arg(((CanvasDock*)param)->newer_version_available);
 #elif __APPLE__
-	filename = QString("vertical-canvas-update-%1.pkg").arg(((CanvasDock*)param)->newer_version_available);
+	filename = QString("obs-vertical-plugin-%1.pkg").arg(((CanvasDock*)param)->newer_version_available);
 #else
-	filename = QString("vertical-canvas-update-%1.deb").arg(((CanvasDock*)param)->newer_version_available);
+	filename = QString("obs-vertical-plugin-%1.deb").arg(((CanvasDock*)param)->newer_version_available);
 #endif
 
 	QString file_path = temp_dir + "/" + filename;
@@ -8720,7 +8718,7 @@ void CanvasDock::DownloadUpdate()
 	if (reply == QMessageBox::Yes) {
 		// Start download
 		download_update_info = update_info_create_single(
-			"[Vertical Canvas Update]", 
+			"[Vertical Plugin Update]", 
 			"OBS", 
 			download_url.toUtf8().constData(),
 			download_complete_callback, 
