@@ -47,6 +47,9 @@ extern "C" {
 #include <dlfcn.h>
 #endif
 
+// Forward declarations
+void cleanup_download_update_info();
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Aitum");
 OBS_MODULE_USE_DEFAULT_LOCALE("vertical-canvas", "en-US")
@@ -636,7 +639,7 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 		std::string json_str = obs_data_get_json(api_response);
 		
 		for (const auto &it : canvas_docks) {
-			QMetaObject::invokeMethod(it, "ApiInfo", Q_ARG(QString, QString::fromUtf8(json_str.c_str())));
+			QMetaObject::invokeMethod(it, "UpdateInfoReady", Q_ARG(QString, QString::fromUtf8(json_str.c_str())));
 		}
 		
 		obs_data_release(data);
@@ -753,7 +756,7 @@ void obs_module_post_load(void)
 
 	// Check for updates
 	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", 
-							"https://vertical-plugin.restream.io/vertical-canvas-version.json",
+							RESTREAM_PLUGIN_BASE_URL "/vertical-canvas-version.json",
 							version_info_downloaded, nullptr);
 }
 
@@ -8130,7 +8133,7 @@ void RemoveWidget(QWidget *widget)
 	delete widget;
 }
 
-void CanvasDock::ApiInfo(QString info)
+void CanvasDock::UpdateInfoReady(QString info)
 {
 	auto d = obs_data_create_from_json(info.toUtf8().constData());
 	if (!d)
@@ -8159,68 +8162,58 @@ void CanvasDock::ApiInfo(QString info)
 			
 			if (filename && strlen(filename) > 0) {
 				// Construct download URL
-				download_url = QString("https://vertical-plugin.restream.io/%1")
+				download_url = QString(RESTREAM_PLUGIN_BASE_URL "/%1")
 					.arg(QString::fromUtf8(filename));
 			}
 		}
 	}
-	time_t current_time = time(nullptr);
-	if (current_time < partnerBlockTime || current_time - partnerBlockTime > 1209600) {
-		obs_data_array_t *blocks = obs_data_get_array(data_obj, "partnerBlocks");
-		size_t count = obs_data_array_count(blocks);
-		size_t added_count = 0;
-		for (size_t i = count; i > 0; i--) {
-			obs_data_t *block = obs_data_array_item(blocks, i - 1);
-			auto block_type = obs_data_get_string(block, "type");
-			QBoxLayout *layout = nullptr;
-			if (strcmp(block_type, "LINK") == 0) {
-				auto button = new QPushButton(QString::fromUtf8(obs_data_get_string(block, "label")));
-				button->setStyleSheet(QString::fromUtf8(obs_data_get_string(block, "qss")));
-				auto url = QString::fromUtf8(obs_data_get_string(block, "data"));
-				connect(button, &QPushButton::clicked, [url] { QDesktopServices::openUrl(QUrl(url)); });
-				auto buttonRow = new QHBoxLayout;
-				buttonRow->addWidget(button);
-				layout = buttonRow;
 
-			} else if (strcmp(block_type, "IMAGE") == 0) {
-				auto image_data = QString::fromUtf8(obs_data_get_string(block, "data"));
-				if (image_data.startsWith("data:image/")) {
-					auto pos = image_data.indexOf(";");
-					auto format = image_data.mid(11, pos - 11);
-					QImage image;
-					if (image.loadFromData(QByteArray::fromBase64(image_data.mid(pos + 7).toUtf8().constData()),
-							       format.toUtf8().constData())) {
-						auto label = new AspectRatioPixmapLabel;
-						label->setPixmap(QPixmap::fromImage(image));
-						label->setAlignment(Qt::AlignCenter);
-						label->setStyleSheet(QString::fromUtf8(obs_data_get_string(block, "qss")));
-						auto labelRow = new QHBoxLayout;
-						labelRow->addWidget(label, 1, Qt::AlignCenter);
-						layout = labelRow;
-					}
-				}
-			}
-			if (layout) {
-				added_count++;
-				if (i == 1) {
-					auto closeButton = new QPushButton("🞫");
-					connect(closeButton, &QPushButton::clicked, [this, added_count] {
-						for (size_t j = 0; j < added_count; j++) {
-							auto item = mainLayout->takeAt(2);
-							RemoveLayoutItem(item);
-						}
-						partnerBlockTime = time(nullptr);
-						SaveSettings();
-					});
-					layout->addWidget(closeButton);
-				}
-				mainLayout->insertLayout(2, layout, 0);
-			}
-			obs_data_release(block);
-		}
-		obs_data_array_release(blocks);
-	}
 	obs_data_release(data_obj);
+}
+
+void CanvasDock::UpdateInstallerReady(QString installerPath)
+{
+	if (installerPath.isEmpty()) {
+		QMessageBox::warning(this, "Update Error", "Failed to download update file.");
+		return;
+	}
+	
+	// Ask user if they want to install now
+	QMessageBox::StandardButton reply = QMessageBox::question(
+		this, 
+		"Update Downloaded", 
+		QString("Update v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation.").arg(newer_version_available),
+		QMessageBox::Yes | QMessageBox::No
+	);
+	
+	if (reply == QMessageBox::Yes) {
+		// Launch the installer
+#ifdef _WIN32
+		QProcess::startDetached(installerPath);
+#elif __APPLE__
+		QProcess::startDetached("open", QStringList() << installerPath);
+#else
+		// For Linux, we might need to use pkexec or ask the user to install manually
+		QMessageBox::information(
+			this,
+			"Installation Required",
+			QString("Please install the update manually by running:\nsudo dpkg -i %1").arg(installerPath)
+		);
+#endif
+	}
+	
+	// Clear update state since installer dialog was shown
+	newer_version_available.clear();
+	download_url.clear();
+	configButton->setStyleSheet("");  // Reset to default styling
+	
+	// Hide update UI elements if config dialog is open
+	if (configDialog && configDialog->isVisible()) {
+		configDialog->newVersion->setVisible(false);
+		configDialog->downloadUpdateButton->setVisible(false);
+	}
+	
+	cleanup_download_update_info();
 }
 
 void CanvasDock::ProfileChanged()
@@ -8655,13 +8648,22 @@ void AspectRatioPixmapLabel::resizeEvent(QResizeEvent *e)
 		QLabel::setPixmap(scaledPixmap());
 }
 
-update_info_t *download_update_info = nullptr;
+static update_info_t *download_update_info = nullptr;
+
+void cleanup_download_update_info() {
+	if (download_update_info) {
+		update_info_destroy(download_update_info);
+		download_update_info = nullptr;
+	}
+}
 
 bool download_complete_callback(void *param, struct file_download_data *file)
 {
-	CanvasDock *canvas_dock = (CanvasDock *)param;
 	if (!file || !file->buffer.num) {
-		QMessageBox::warning(canvas_dock, "Update Error", "Failed to download update file.");
+		// Notify all canvas docks about download failure
+		for (const auto &it : canvas_docks) {
+			QMetaObject::invokeMethod(it, "UpdateInstallerReady", Q_ARG(QString, QString()));
+		}
 		return true;
 	}
 
@@ -8670,50 +8672,27 @@ bool download_complete_callback(void *param, struct file_download_data *file)
 	QString filename;
 	
 #ifdef _WIN32
-	filename = QString("vertical-canvas-update-%1.exe").arg(canvas_dock->newer_version_available);
+	filename = QString("vertical-canvas-update-%1.exe").arg(((CanvasDock*)param)->newer_version_available);
 #elif __APPLE__
-	filename = QString("vertical-canvas-update-%1.pkg").arg(canvas_dock->newer_version_available);
+	filename = QString("vertical-canvas-update-%1.pkg").arg(((CanvasDock*)param)->newer_version_available);
 #else
-	filename = QString("vertical-canvas-update-%1.deb").arg(canvas_dock->newer_version_available);
+	filename = QString("vertical-canvas-update-%1.deb").arg(((CanvasDock*)param)->newer_version_available);
 #endif
 
 	QString file_path = temp_dir + "/" + filename;
 	
 	QFile update_file(file_path);
+	QString installer_path = "";
+	
 	if (update_file.open(QIODevice::WriteOnly)) {
 		update_file.write((const char *)file->buffer.array, file->buffer.num);
 		update_file.close();
-		
-		// Ask user if they want to install now
-		QMessageBox::StandardButton reply = QMessageBox::question(
-			canvas_dock, 
-			"Update Downloaded", 
-			QString("Update v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation.").arg(canvas_dock->newer_version_available),
-			QMessageBox::Yes | QMessageBox::No
-		);
-		
-		if (reply == QMessageBox::Yes) {
-			// Launch the installer
-#ifdef _WIN32
-			QProcess::startDetached(file_path);
-#elif __APPLE__
-			QProcess::startDetached("open", QStringList() << file_path);
-#else
-			// For Linux, we might need to use pkexec or ask the user to install manually
-			QMessageBox::information(
-				canvas_dock,
-				"Installation Required",
-				QString("Please install the update manually by running:\nsudo dpkg -i %1").arg(file_path)
-			);
-#endif
-		}
-	} else {
-		QMessageBox::warning(canvas_dock, "Update Error", "Failed to save update file.");
+		installer_path = file_path;
 	}
 	
-	if (download_update_info) {
-		update_info_destroy(download_update_info);
-		download_update_info = nullptr;
+	// Notify all canvas docks about download completion
+	for (const auto &it : canvas_docks) {
+		QMetaObject::invokeMethod(it, "UpdateInstallerReady", Q_ARG(QString, installer_path));
 	}
 	
 	return true;

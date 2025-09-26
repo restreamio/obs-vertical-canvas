@@ -28,6 +28,8 @@ class OBSBasicSettings : public QDialog {
 	Q_PROPERTY(QIcon hotkeysIcon READ GetHotkeysIcon WRITE SetHotkeysIcon DESIGNABLE true)
 	Q_PROPERTY(QIcon accessibilityIcon READ GetAccessibilityIcon WRITE SetAccessibilityIcon DESIGNABLE true)
 	Q_PROPERTY(QIcon advancedIcon READ GetAdvancedIcon WRITE SetAdvancedIcon DESIGNABLE true)
+
+	friend class CanvasDock;
 private:
 	CanvasDock *canvasDock;
 	QLabel *newVersion;

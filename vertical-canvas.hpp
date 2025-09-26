@@ -36,6 +36,7 @@
 
 #define RESTREAM_MAIN_URL "https://restream.io"
 #define RESTREAM_LEARN_MORE_URL "https://support.restream.io/en/articles/11730141-dual-output"
+#define RESTREAM_PLUGIN_BASE_URL "https://vertical-plugin.restream.io"
 
 enum class ItemHandle : uint32_t {
 	None = 0,
@@ -439,7 +440,8 @@ private slots:
 	void OpenSourceProjector();
 	void SwitchBackToSelectedTransition();
 
-	void ApiInfo(QString data);
+	void UpdateInfoReady(QString data);
+	void UpdateInstallerReady(QString installerPath);
 	void updateStreamKey(const QString &newStreamKey, int index);
 	void updateStreamServer(const QString &newStreamServer, int index);
 	void DownloadUpdate();
