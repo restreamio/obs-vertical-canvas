@@ -91,10 +91,12 @@ class CanvasDock : public QFrame {
 	friend class SourceTreeModel;
 	friend class OBSBasicSettings;
 	friend class OBSProjector;
+	friend bool download_complete_callback(void *param, struct file_download_data *file);
 
 private:
 	QPointer<QAction> action;
 	QString newer_version_available;
+	QString download_url;
 	QVBoxLayout *mainLayout;
 	OBSQTDisplay *preview;
 	bool preview_disabled = false;
@@ -440,6 +442,7 @@ private slots:
 	void ApiInfo(QString data);
 	void updateStreamKey(const QString &newStreamKey, int index);
 	void updateStreamServer(const QString &newStreamServer, int index);
+	void DownloadUpdate();
 
 public:
 	CanvasDock(obs_data_t *settings, QWidget *parent = nullptr);

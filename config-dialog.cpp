@@ -978,8 +978,15 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	newVersion->setOpenExternalLinks(true);
 	newVersion->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 
+	downloadUpdateButton = new QPushButton("Download Update");
+	downloadUpdateButton->setVisible(false);
+	connect(downloadUpdateButton, &QPushButton::clicked, [this]() {
+		canvasDock->DownloadUpdate();
+	});
+
 	bottomLayout->addWidget(versionWidget, 1, Qt::AlignLeft);
 	bottomLayout->addWidget(newVersion, 1, Qt::AlignLeft);
+	bottomLayout->addWidget(downloadUpdateButton, 0, Qt::AlignCenter);
 	bottomLayout->addWidget(okButton, 0, Qt::AlignRight);
 	bottomLayout->addWidget(cancelButton, 0, Qt::AlignRight);
 
@@ -1149,10 +1156,14 @@ void OBSBasicSettings::AddServer()
 
 void OBSBasicSettings::LoadSettings()
 {
-	// if (!canvasDock->newer_version_available.isEmpty()) {
-	// 	newVersion->setText(QString::fromUtf8(obs_module_text("NewVersion")).arg(canvasDock->newer_version_available));
-	// 	newVersion->setVisible(true);
-	// }
+	if (!canvasDock->newer_version_available.isEmpty()) {
+		newVersion->setText(QString::fromUtf8(obs_module_text("NewVersion")).arg(canvasDock->newer_version_available));
+		newVersion->setVisible(true);
+		downloadUpdateButton->setVisible(true);
+	} else {
+		newVersion->setVisible(false);
+		downloadUpdateButton->setVisible(false);
+	}
 	
 	resolution->setCurrentText(QString::number(canvasDock->canvas_width) + "x" + QString::number(canvasDock->canvas_height));
 	bool enable = !obs_output_active(canvasDock->recordOutput) && !obs_output_active(canvasDock->virtualCamOutput);

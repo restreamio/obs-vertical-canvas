@@ -8,6 +8,9 @@
 #include <obs-frontend-api.h>
 #include <obs-module.h>
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QProcess>
 
 #include <QGuiApplication>
 #include <QLineEdit>
@@ -595,24 +598,59 @@ void vendor_request_unpause_recording(obs_data_t *request_data, obs_data_t *resp
 	obs_data_set_bool(response_data, "success", false);
 }
 
-// update_info_t *version_update_info = nullptr;
+update_info_t *version_update_info = nullptr;
 
-/*
 bool version_info_downloaded(void *param, struct file_download_data *file)
 {
 	UNUSED_PARAMETER(param);
 	if (!file || !file->buffer.num)
 		return true;
-	for (const auto &it : canvas_docks) {
-		QMetaObject::invokeMethod(it, "ApiInfo", Q_ARG(QString, QString::fromUtf8((const char *)file->buffer.array)));
+	
+	// Parse S3 JSON response
+	obs_data_t *json = obs_data_create_from_json((const char *)file->buffer.array);
+	if (!json)
+		return true;
+	
+	// S3 JSON format: {"version": "1.0.0", "commit": "abc123", "downloads": {...}}
+	if (obs_data_has_user_value(json, "version")) {
+		const char *version = obs_data_get_string(json, "version");
+		const char *commit = obs_data_get_string(json, "commit");
+		obs_data_t *downloads = obs_data_get_obj(json, "downloads");
+		
+		// Create a response for ApiInfo with download info
+		obs_data_t *api_response = obs_data_create();
+		obs_data_t *data = obs_data_create();
+		
+		obs_data_set_string(data, "version", version);
+		obs_data_set_string(data, "commit", commit);
+		
+		// Add download filenames
+		if (downloads) {
+			obs_data_set_string(data, "windows_file", obs_data_get_string(downloads, "windows"));
+			obs_data_set_string(data, "macos_file", obs_data_get_string(downloads, "macos"));
+			obs_data_release(downloads);
+		}
+		
+		obs_data_set_obj(api_response, "data", data);
+		
+		std::string json_str = obs_data_get_json(api_response);
+		
+		for (const auto &it : canvas_docks) {
+			QMetaObject::invokeMethod(it, "ApiInfo", Q_ARG(QString, QString::fromUtf8(json_str.c_str())));
+		}
+		
+		obs_data_release(data);
+		obs_data_release(api_response);
 	}
+	
+	obs_data_release(json);
+	
 	if (version_update_info) {
 		update_info_destroy(version_update_info);
 		version_update_info = nullptr;
 	}
 	return true;
 }
-*/
 
 bool obs_module_load(void)
 {
@@ -713,8 +751,10 @@ void obs_module_post_load(void)
 	obs_websocket_vendor_register_request(vendor, "pause_recording", vendor_request_pause_recording, nullptr);
 	obs_websocket_vendor_register_request(vendor, "unpause_recording", vendor_request_unpause_recording, nullptr);
 
-	// version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", "https://api.aitum.tv/plugin/vertical",
-	//						version_info_downloaded, nullptr);
+	// Check for updates from S3
+	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", 
+							"https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/vertical-canvas-version.json",
+							version_info_downloaded, nullptr);
 }
 
 void obs_module_unload(void)
@@ -8108,6 +8148,20 @@ void CanvasDock::ApiInfo(QString info)
 		if (sv > MAKE_SEMANTIC_VERSION(PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH)) {
 			newer_version_available = QString::fromUtf8(version);
 			configButton->setStyleSheet(QString::fromUtf8("background: rgb(192,128,0);"));
+			
+			// Extract download URL from S3 data
+			const char *filename = nullptr;
+#ifdef _WIN32
+			filename = obs_data_get_string(data_obj, "windows_file");
+#elif __APPLE__
+			filename = obs_data_get_string(data_obj, "macos_file");
+#endif
+			
+			if (filename && strlen(filename) > 0) {
+				// Construct download URL for S3
+				download_url = QString("https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/%1")
+					.arg(QString::fromUtf8(filename));
+			}
 		}
 	}
 	time_t current_time = time(nullptr);
@@ -8599,4 +8653,99 @@ void AspectRatioPixmapLabel::resizeEvent(QResizeEvent *e)
 	UNUSED_PARAMETER(e);
 	if (!pix.isNull())
 		QLabel::setPixmap(scaledPixmap());
+}
+
+update_info_t *download_update_info = nullptr;
+
+bool download_complete_callback(void *param, struct file_download_data *file)
+{
+	CanvasDock *canvas_dock = (CanvasDock *)param;
+	if (!file || !file->buffer.num) {
+		QMessageBox::warning(canvas_dock, "Update Error", "Failed to download update file.");
+		return true;
+	}
+
+	// Save the downloaded file to temp directory
+	QString temp_dir = QDir::tempPath();
+	QString filename;
+	
+#ifdef _WIN32
+	filename = QString("vertical-canvas-update-%1.exe").arg(canvas_dock->newer_version_available);
+#elif __APPLE__
+	filename = QString("vertical-canvas-update-%1.pkg").arg(canvas_dock->newer_version_available);
+#else
+	filename = QString("vertical-canvas-update-%1.deb").arg(canvas_dock->newer_version_available);
+#endif
+
+	QString file_path = temp_dir + "/" + filename;
+	
+	QFile update_file(file_path);
+	if (update_file.open(QIODevice::WriteOnly)) {
+		update_file.write((const char *)file->buffer.array, file->buffer.num);
+		update_file.close();
+		
+		// Ask user if they want to install now
+		QMessageBox::StandardButton reply = QMessageBox::question(
+			canvas_dock, 
+			"Update Downloaded", 
+			QString("Update v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation.").arg(canvas_dock->newer_version_available),
+			QMessageBox::Yes | QMessageBox::No
+		);
+		
+		if (reply == QMessageBox::Yes) {
+			// Launch the installer
+#ifdef _WIN32
+			QProcess::startDetached(file_path);
+#elif __APPLE__
+			QProcess::startDetached("open", QStringList() << file_path);
+#else
+			// For Linux, we might need to use pkexec or ask the user to install manually
+			QMessageBox::information(
+				canvas_dock,
+				"Installation Required",
+				QString("Please install the update manually by running:\nsudo dpkg -i %1").arg(file_path)
+			);
+#endif
+		}
+	} else {
+		QMessageBox::warning(canvas_dock, "Update Error", "Failed to save update file.");
+	}
+	
+	if (download_update_info) {
+		update_info_destroy(download_update_info);
+		download_update_info = nullptr;
+	}
+	
+	return true;
+}
+
+void CanvasDock::DownloadUpdate()
+{
+	if (newer_version_available.isEmpty() || download_url.isEmpty()) {
+		QMessageBox::information(this, "No Update Available", "No update is currently available.");
+		return;
+	}
+
+	if (download_update_info) {
+		QMessageBox::information(this, "Download in Progress", "Update download is already in progress.");
+		return;
+	}
+
+	QMessageBox::StandardButton reply = QMessageBox::question(
+		this, 
+		"Download Update", 
+		QString("Do you want to download update v%1?").arg(newer_version_available),
+		QMessageBox::Yes | QMessageBox::No
+	);
+	
+	if (reply == QMessageBox::Yes) {
+		// Start download
+		download_update_info = update_info_create_single(
+			"[Vertical Canvas Update]", 
+			"OBS", 
+			download_url.toUtf8().constData(),
+			download_complete_callback, 
+			this
+		);
+	}
 }
