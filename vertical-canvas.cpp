@@ -751,9 +751,9 @@ void obs_module_post_load(void)
 	obs_websocket_vendor_register_request(vendor, "pause_recording", vendor_request_pause_recording, nullptr);
 	obs_websocket_vendor_register_request(vendor, "unpause_recording", vendor_request_unpause_recording, nullptr);
 
-	// Check for updates from S3
+	// Check for updates
 	version_update_info = update_info_create_single("[Vertical Canvas]", "OBS", 
-							"https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/vertical-canvas-version.json",
+							"https://vertical-plugin.restream.io/vertical-canvas-version.json",
 							version_info_downloaded, nullptr);
 }
 
@@ -8158,8 +8158,8 @@ void CanvasDock::ApiInfo(QString info)
 #endif
 			
 			if (filename && strlen(filename) > 0) {
-				// Construct download URL for S3
-				download_url = QString("https://restream-cloudfront-vertical-plugin.s3.amazonaws.com/%1")
+				// Construct download URL
+				download_url = QString("https://vertical-plugin.restream.io/%1")
 					.arg(QString::fromUtf8(filename));
 			}
 		}
