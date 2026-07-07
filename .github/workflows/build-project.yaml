@@ -44,7 +44,8 @@ jobs:
               fi
               ;;
             workflow_dispatch)
-              if [[ "${GITHUB_REF_NAME}" == "master" ]]; then
+              # TEMP(newsign): allow signing test on the newsign branch via manual dispatch
+              if [[ "${GITHUB_REF_NAME}" == "master" || "${GITHUB_REF_NAME}" == "newsign" ]]; then
                 config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
               else
                 config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
@@ -280,7 +281,7 @@ jobs:
       #     & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x64/signtool.exe' sign /f certificate\certificate.pfx /p '${{ secrets.WINDOWS_CSC_PASS }}' /t http://timestamp.comodoca.com/authenticode .\release\${{ needs.check-event.outputs.config }}\obs-plugins\64bit\${{ steps.setup.outputs.pluginName }}.dll
 
       - name: Set DigiCert variables and certificate
-        if: success() && github.ref == 'refs/heads/master'
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         id: variables
         run: |
           echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
@@ -291,7 +292,7 @@ jobs:
         shell: pwsh
 
       - name: Add signtool to PATH
-        if: success() && github.ref == 'refs/heads/master'
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         shell: pwsh
         run: |
           $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
@@ -308,12 +309,12 @@ jobs:
           $signtoolDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Setup Software Trust Manager
-        if: success() && github.ref == 'refs/heads/master'
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         id: stm-setup
         uses: digicert/code-signing-software-trust-action@v1.2.1
 
       - name: Sign Plugin DLL using DigiCert
-        if: success() && github.ref == 'refs/heads/master'
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         run: |
           smctl sign --keypair-alias ${{ secrets.SM_KEYPAIR }} --input ".\release\${{ needs.check-event.outputs.config }}\obs-plugins\64bit\${{ steps.setup.outputs.pluginName }}.dll"
         shell: cmd
@@ -331,7 +332,7 @@ jobs:
       #     & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x64/signtool.exe' sign /f certificate\certificate.pfx /p '${{ secrets.WINDOWS_CSC_PASS }}' /t http://timestamp.comodoca.com/authenticode ./release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-Installer.exe
 
       - name: Sign Installer using DigiCert
-        if: success() && github.ref == 'refs/heads/master'
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         run: |
           smctl sign --keypair-alias ${{ secrets.SM_KEYPAIR }} --input "./release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-Installer.exe"
         shell: cmd
