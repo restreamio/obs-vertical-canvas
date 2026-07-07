@@ -280,16 +280,21 @@ jobs:
       #   run: |
       #     & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x64/signtool.exe' sign /f certificate\certificate.pfx /p '${{ secrets.WINDOWS_CSC_PASS }}' /t http://timestamp.comodoca.com/authenticode .\release\${{ needs.check-event.outputs.config }}\obs-plugins\64bit\${{ steps.setup.outputs.pluginName }}.dll
 
-      - name: Set DigiCert variables and certificate
+      - name: Set up DigiCert certificate
+        if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
+        shell: bash
+        run: |
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+
+      - name: Set DigiCert variables
         if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         id: variables
+        shell: pwsh
         run: |
-          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > D:\Certificate_pkcs12.p12
           echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$env:GITHUB_ENV"
           echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$env:GITHUB_ENV"
           echo "SM_CLIENT_CERT_FILE=D:\Certificate_pkcs12.p12" >> "$env:GITHUB_ENV"
           echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$env:GITHUB_ENV"
-        shell: pwsh
 
       - name: Add signtool to PATH
         if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
