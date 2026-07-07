@@ -284,7 +284,7 @@ jobs:
         if: success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/newsign') # TEMP(newsign): signing test
         id: variables
         run: |
-          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > D:\Certificate_pkcs12.p12
           echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$env:GITHUB_ENV"
           echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$env:GITHUB_ENV"
           echo "SM_CLIENT_CERT_FILE=D:\Certificate_pkcs12.p12" >> "$env:GITHUB_ENV"
