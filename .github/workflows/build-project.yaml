@@ -315,7 +315,7 @@ jobs:
       - name: Setup Software Trust Manager
         if: success() && fromJSON(needs.check-event.outputs.codesign)
         id: stm-setup
-        uses: digicert/code-signing-software-trust-action@v1.2.1
+        uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
 
       - name: Sign Plugin DLL using DigiCert
         if: success() && fromJSON(needs.check-event.outputs.codesign)
