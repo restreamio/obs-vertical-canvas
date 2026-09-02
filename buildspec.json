@@ -33,7 +33,7 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "tv.aitum.vertical"
+            "bundleId": "io.restream.vertical"
         }
     },
     "name": "vertical-canvas",

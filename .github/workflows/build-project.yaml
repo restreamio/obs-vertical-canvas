@@ -48,7 +48,8 @@ jobs:
               fi
               ;;
             workflow_dispatch)
-              config_data=('codesign:true' 'notarize:true' 'package:true' 'config:RelWithDebInfo')
+              # manual dispatch runs are for build verification only - no signing
+              config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
               ;;
             schedule)
               config_data=('codesign:true' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
@@ -182,6 +183,7 @@ jobs:
         os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     needs: check-event
+    if: false # Disabled: Ubuntu build is slow and not distributed to users
     defaults:
       run:
         shell: bash
