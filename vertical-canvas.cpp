@@ -8632,14 +8632,6 @@ void CanvasDock::AddSceneItem(OBSSceneItem item)
 		sourcesDock->sourceList->Add(item);
 	}
 
-		// // Disable audio mixers for all sources on vertical canvas
-		// // This prevents audio from vertical canvas sources from appearing in main stream
-		// obs_source_t *source = obs_sceneitem_get_source(item);
-		// if (source && obs_source_get_output_flags(source) & OBS_SOURCE_AUDIO) {
-		// 	obs_source_set_audio_mixers(source, 0);
-		// }
-	}
-
 	obs_scene_enum_items(add_scene, select_one, (obs_sceneitem_t *)item);
 }
 
