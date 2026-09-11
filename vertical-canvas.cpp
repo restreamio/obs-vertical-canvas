@@ -164,6 +164,10 @@ void frontend_event(obs_frontend_event event, void *private_data)
 			it->LogScenes();
 		}
 	} else if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
+		// a crash mid-stream can leave the patched /horizontal url in the main service; undo it on startup
+		for (const auto &it : canvas_docks) {
+			QMetaObject::invokeMethod(it, "RestoreMainUrl", Qt::DirectConnection);
+		}
 		struct obs_frontend_source_list transitions = {};
 		obs_frontend_get_transitions(&transitions);
 		for (size_t i = 0; i < transitions.sources.num; i++) {
@@ -675,11 +679,6 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 	}
 	
 	obs_data_release(json);
-	
-	if (version_update_info) {
-		update_info_destroy(version_update_info);
-		version_update_info = nullptr;
-	}
 	return true;
 }
 
@@ -819,10 +818,11 @@ void obs_module_unload(void)
 		obs_websocket_vendor_unregister_request(vendor, "update_stream_server");
 	}
 	obs_frontend_remove_event_callback(frontend_event, nullptr);
-	// if (version_update_info) {
-	//	update_info_destroy(version_update_info);
-	//	version_update_info = nullptr;
-	// }
+	if (version_update_info) {
+		update_info_destroy(version_update_info);
+		version_update_info = nullptr;
+	}
+	cleanup_download_update_info();
 }
 
 MODULE_EXPORT const char *obs_module_description(void)
@@ -1644,19 +1644,6 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 	obs_data_array_release(start_hotkey);
 	obs_data_array_release(stop_hotkey);
 
-	stream_hotkey = obs_hotkey_pair_register_frontend(
-		"VerticalCanvasDockStartStreaming",
-		(title + " " + QString::fromUtf8(obs_frontend_get_locale_string("Basic.Main.StartStreaming"))).toUtf8().constData(),
-		"VerticalCanvasDockStopStreaming",
-		(title + " " + QString::fromUtf8(obs_frontend_get_locale_string("Basic.Main.StopStreaming"))).toUtf8().constData(),
-		start_streaming_hotkey, stop_streaming_hotkey, this, this);
-
-	start_hotkey = obs_data_get_array(settings, "start_stream_hotkey");
-	stop_hotkey = obs_data_get_array(settings, "stop_stream_hotkey");
-	obs_hotkey_pair_load(stream_hotkey, start_hotkey, stop_hotkey);
-	obs_data_array_release(start_hotkey);
-	obs_data_array_release(stop_hotkey);
-
 	pause_hotkey = obs_hotkey_pair_register_frontend(
 		"VerticalCanvasDockPause",
 		(title + " " + QString::fromUtf8(obs_frontend_get_locale_string("Basic.Main.PauseRecording"))).toUtf8().constData(),
@@ -1740,7 +1727,6 @@ CanvasDock::~CanvasDock()
 	obs_hotkey_pair_unregister(backtrack_hotkey);
 	obs_hotkey_pair_unregister(virtual_cam_hotkey);
 	obs_hotkey_pair_unregister(record_hotkey);
-	obs_hotkey_pair_unregister(stream_hotkey);
 	obs_hotkey_pair_unregister(pause_hotkey);
 	obs_hotkey_pair_unregister(preview_hotkey);
 	obs_hotkey_unregister(chapter_hotkey);
@@ -6184,8 +6170,12 @@ obs_encoder_t *CanvasDock::GetStreamVideoEncoder()
 		if (strcmp(mode, "Advanced") == 0) {
 			video_settings = GetDataFromJsonFile("streamEncoder.json");
 			enc_id = config_get_string(config, "AdvOut", "Encoder");
-			const char *recordEncoder = config_get_string(config, "AdvOut", "RecEncoder");
-			useRecordEncoder = astrcmpi(recordEncoder, "none") == 0;
+			if (record_advanced_settings) {
+				useRecordEncoder = record_encoder.empty();
+			} else {
+				const char *recordEncoder = config_get_string(config, "AdvOut", "RecEncoder");
+				useRecordEncoder = astrcmpi(recordEncoder, "none") == 0;
+			}
 			if (!streamingVideoBitrate) {
 				streamingVideoBitrate = (uint32_t)obs_data_get_int(video_settings, "bitrate");
 			} else {
@@ -6242,9 +6232,13 @@ obs_encoder_t *CanvasDock::GetStreamVideoEncoder()
 				obs_data_set_string(video_settings, "x264opts", custom);
 			}
 
-			const char *quality = config_get_string(config, "SimpleOutput", "RecQuality");
-			if (strcmp(quality, "Stream") == 0) {
-				useRecordEncoder = true;
+			if (record_advanced_settings) {
+				useRecordEncoder = record_encoder.empty();
+			} else {
+				const char *quality = config_get_string(config, "SimpleOutput", "RecQuality");
+				if (strcmp(quality, "Stream") == 0) {
+					useRecordEncoder = true;
+				}
 			}
 		}
 	}
@@ -6411,7 +6405,7 @@ void CanvasDock::replay_output_stop(void *data, calldata_t *calldata)
 void CanvasDock::StreamButtonClicked()
 {
 	enable_vertical = !enable_vertical;
-	// TODO Save settings
+	save_canvas();
 
 	if (!enable_vertical) {
 		int active_count = 0;
@@ -6491,8 +6485,8 @@ void CanvasDock::PatchMainUrl() {
 				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
 
 			if (info_func) {
-				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
-				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+				const char *server_url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				std::string url = server_url ? server_url : "";
 
 				QString qUrl = QString::fromStdString(url);
 				bool updateFlag = false;
@@ -6522,6 +6516,7 @@ void CanvasDock::PatchMainUrl() {
 					blog(LOG_INFO, "[Vertical Plugin] Horizontal stream url changed, url=%s", url.c_str());
 				}
 			}
+			obs_service_release(mainService);
 		}
 	}
 
@@ -6551,8 +6546,8 @@ void CanvasDock::RestoreMainUrl() {
 				(const char *(*)(obs_service_t *, uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
 
 			if (info_func) {
-				std::string url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
-				std::string key = info_func(mainService, 2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
+				const char *server_url = info_func(mainService, 0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				std::string url = server_url ? server_url : "";
 
 				QString qUrl = QString::fromStdString(url);
 				
@@ -6571,6 +6566,7 @@ void CanvasDock::RestoreMainUrl() {
 					blog(LOG_INFO, "[Vertical Plugin] Horizontal stream url restored, url=%s", url.c_str());
 				}
 			}
+			obs_service_release(mainService);
 		}
 	}
 
@@ -6719,18 +6715,13 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 			const char *url = nullptr;
 			const char *key = nullptr;
 
-			auto url_func = (const char *(*)(obs_service_t *))os_dlsym(handle, "obs_service_get_url");
-			if (url_func) {
-				url = url_func(it->service);
-			} else {
-				auto info_func = (const char *(*)(obs_service_t *,
-					uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
-				if (info_func) {
-					url = info_func(mainService ? mainService : it->service,
-							0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
-					key = info_func(mainService ? mainService : it->service,
-							2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
-				}
+			auto info_func = (const char *(*)(obs_service_t *,
+				uint32_t))os_dlsym(handle, "obs_service_get_connect_info");
+			if (info_func) {
+				url = info_func(mainService ? mainService : it->service,
+						0); // OBS_SERVICE_CONNECT_INFO_SERVER_URL
+				key = info_func(mainService ? mainService : it->service,
+						2); // OBS_SERVICE_CONNECT_INFO_STREAM_KEY
 			}
 
 			type = "rtmp_output";
@@ -6740,6 +6731,9 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 				}
 				else if (url != nullptr && strncmp(url, "rtmp", 4) != 0) {
 					type = "ffmpeg_mpegts_muxer";
+				}
+				else if (key == nullptr) {
+					blog(LOG_WARNING, "[Vertical Plugin] Main service has no stream key, vertical output not configured");
 				}
 				else {
 					QString qUrl = QString::fromStdString(url);
@@ -6781,6 +6775,9 @@ void CanvasDock::CreateStreamOutput(std::vector<StreamServer>::iterator it)
 					blog(LOG_INFO, "[Vertical Plugin] Setup restream output, url=%s, key=%s", mainUrl.c_str(), maskedKey.toStdString().c_str());
 				}
 			}
+		}
+		if (mainService) {
+			obs_service_release(mainService);
 		}
 		os_dlclose(handle);
 	}
@@ -7279,13 +7276,6 @@ obs_data_t *CanvasDock::SaveSettings()
 	obs_hotkey_pair_save(record_hotkey, &start_hotkey, &stop_hotkey);
 	obs_data_set_array(save_data, "start_record_hotkey", start_hotkey);
 	obs_data_set_array(save_data, "stop_record_hotkey", stop_hotkey);
-	obs_data_array_release(start_hotkey);
-	obs_data_array_release(stop_hotkey);
-	start_hotkey = nullptr;
-	stop_hotkey = nullptr;
-	obs_hotkey_pair_save(stream_hotkey, &start_hotkey, &stop_hotkey);
-	obs_data_set_array(save_data, "start_stream_hotkey", start_hotkey);
-	obs_data_set_array(save_data, "stop_stream_hotkey", stop_hotkey);
 	obs_data_array_release(start_hotkey);
 	obs_data_array_release(stop_hotkey);
 	start_hotkey = nullptr;
@@ -8320,46 +8310,6 @@ bool CanvasDock::stop_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_ho
 	return true;
 }
 
-bool CanvasDock::start_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
-{
-	UNUSED_PARAMETER(id);
-	UNUSED_PARAMETER(hotkey);
-	if (!pressed) {
-		return false;
-	}
-	const auto d = static_cast<CanvasDock *>(data);
-	for (auto it = d->streamOutputs.begin(); it != d->streamOutputs.end(); ++it) {
-		if (obs_output_active(it->output)) {
-			return false;
-		}
-	}
-	// QMetaObject::invokeMethod(d, "StreamButtonClicked");
-	// return true;
-	return false;
-}
-
-bool CanvasDock::stop_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
-{
-	UNUSED_PARAMETER(id);
-	UNUSED_PARAMETER(hotkey);
-	if (!pressed) {
-		return false;
-	}
-	const auto d = static_cast<CanvasDock *>(data);
-	bool found = false;
-	for (auto it = d->streamOutputs.begin(); it != d->streamOutputs.end(); ++it) {
-		if (obs_output_active(it->output)) {
-			found = true;
-		}
-	}
-	if (!found) {
-		return false;
-	}
-	// QMetaObject::invokeMethod(d, "StreamButtonClicked");
-	// return true;
-	return false;
-}
-
 bool CanvasDock::pause_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
 {
 	UNUSED_PARAMETER(id);
@@ -9075,7 +9025,13 @@ void CanvasDock::get_transitions(void *data, struct obs_frontend_source_list *so
 
 bool CanvasDock::LoadStreamOutputs(obs_data_array_t *) // outputs
 {
+	// single fixed Restream output; repeated calls (proc handler) must not add a second one
+	if (!streamOutputs.empty()) {
+		return false;
+	}
+
 	StreamServer ss;
+	ss.name = "Restream";
 	ss.stream_server = "rtmp://live.restream.io/live";
 	ss.stream_key = "re_";
 	ss.service = obs_service_create("rtmp_custom", "vertical_canvas_stream_service_0", nullptr, nullptr);

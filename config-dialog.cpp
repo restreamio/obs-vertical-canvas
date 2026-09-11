@@ -86,34 +86,6 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	scrollArea->setFrameShape(QFrame::NoFrame);
 	settingsPages->addWidget(scrollArea);
 
-	auto helpPage = new QWidget;
-	scrollArea = new QScrollArea;
-	scrollArea->setWidget(helpPage);
-	scrollArea->setWidgetResizable(true);
-	scrollArea->setLineWidth(0);
-	scrollArea->setFrameShape(QFrame::NoFrame);
-	// settingsPages->addWidget(scrollArea);
-
-	// Support page
-	QWidget *supportPage = new QWidget;
-	auto supportPageLayout = new QVBoxLayout;
-	supportPage->setLayout(supportPageLayout);
-
-	auto supportInfoBox = new QGroupBox(QString::fromUtf8(obs_module_text("SupportTitle")));
-	supportInfoBox->setStyleSheet("padding-top: 12px");
-	auto supportLayout = new QVBoxLayout;
-	supportInfoBox->setLayout(supportLayout);
-
-	auto supportLabel = new QLabel(QString::fromUtf8(obs_module_text("SupportText")));
-	supportLabel->setStyleSheet("font-size: 14px");
-	supportLabel->setWordWrap(true);
-	supportLabel->setTextFormat(Qt::RichText);
-	supportLabel->setOpenExternalLinks(true);
-	supportLayout->addWidget(supportLabel, 1);
-	supportPageLayout->addWidget(supportInfoBox, 1, Qt::AlignTop);
-
-	// settingsPages->addWidget(supportPage);
-
 	connect(listWidget, &QListWidget::currentRowChanged, settingsPages, &QStackedWidget::setCurrentIndex);
 
 	auto generalGroup = new QGroupBox;
@@ -886,62 +858,6 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	vb->addStretch();
 	recordingPage->setLayout(vb);
 
-	// HELP PAGE
-	auto helpButtonGroup = new QWidget();
-	auto helpButtonGroupLayout = new QVBoxLayout();
-	helpButtonGroupLayout->setContentsMargins(0, 0, 0, 0);
-
-	helpButtonGroupLayout->setSpacing(5);
-	helpButtonGroup->setLayout(helpButtonGroupLayout);
-
-	// intro text
-	auto helpTitle = new QLabel;
-	helpTitle->setText(QString::fromUtf8(obs_module_text("Help")));
-	helpTitle->setStyleSheet(QString::fromUtf8("font-weight: bold;"));
-	helpButtonGroupLayout->addWidget(helpTitle);
-
-	// intro desc
-	auto introDesc = new QLabel;
-	introDesc->setText(QString::fromUtf8(obs_module_text("HelpIntro")));
-
-	helpButtonGroupLayout->addWidget(introDesc);
-
-	// troubleshooter button
-	auto tsButton = new QPushButton;
-	tsButton->setObjectName(QStringLiteral("tsButton"));
-	tsButton->setCheckable(false);
-	tsButton->setText(QString::fromUtf8(obs_module_text("HelpTroubleshooterButton")));
-
-	connect(tsButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://l.aitum.tv/vh-ts")); });
-
-	helpButtonGroupLayout->addWidget(tsButton);
-
-	// guides button
-	auto guideButton = new QPushButton;
-	guideButton->setObjectName(QStringLiteral("guideButton"));
-	guideButton->setCheckable(false);
-	guideButton->setText(QString::fromUtf8(obs_module_text("HelpGuideButton")));
-
-	connect(guideButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://l.aitum.tv/vh-guides")); });
-
-	helpButtonGroupLayout->addWidget(guideButton);
-
-	// discord button
-	auto discordButton = new QPushButton;
-	discordButton->setObjectName(QStringLiteral("discordButton"));
-	discordButton->setCheckable(false);
-	discordButton->setText(QString::fromUtf8(obs_module_text("HelpDiscordButton")));
-
-	connect(discordButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://aitum.tv/discord")); });
-
-	helpButtonGroupLayout->addWidget(discordButton);
-
-	vb = new QVBoxLayout;
-	vb->setContentsMargins(0, 0, 0, 0);
-	vb->addWidget(helpButtonGroup);
-	vb->addStretch();
-	helpPage->setLayout(vb);
-
 	QPushButton *okButton = new QPushButton(QString::fromUtf8(obs_frontend_get_locale_string("OK")));
 	connect(okButton, &QPushButton::clicked, [this] {
 		SaveSettings();
@@ -1107,7 +1023,9 @@ void OBSBasicSettings::SetAdvancedIcon(const QIcon &icon)
 void OBSBasicSettings::AddServer()
 {
 	// int idx = (int)servers.size();
-	auto serverGroup = new QGroupBox;
+	// not inserted into the layout, but SaveSettings still reads these fields: parent + hide instead of leaking
+	auto serverGroup = new QGroupBox(this);
+	serverGroup->hide();
 	serverGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 	serverGroup->setStyleSheet(QString("QGroupBox{background-color: %1; padding-top: 4px;}")
 					   .arg(palette().color(QPalette::ColorRole::Mid).name(QColor::HexRgb)));
