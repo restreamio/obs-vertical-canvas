@@ -25,18 +25,17 @@ else()
   target_link_libraries(${PROJECT_NAME} PRIVATE OBS::frontend-api)
 endif()
 
+find_package(Qt6 COMPONENTS Widgets Core)
 if(BUILD_OUT_OF_TREE)
-  find_qt(COMPONENTS Widgets Core)
   if(OS_LINUX OR OS_FREEBSD OR OS_OPENBSD)
     find_package(Qt6 REQUIRED Gui)
   endif()
-else()
-  find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets)
 
-if(OS_LINUX OR OS_FREEBSD OR OS_OPENBSD)
-	target_link_libraries(${PROJECT_NAME} PRIVATE Qt::GuiPrivate)
+if((OS_LINUX OR OS_FREEBSD OR OS_OPENBSD) AND Qt6_VERSION VERSION_LESS "6.9.0")
+  find_package(Qt6 COMPONENTS GuiPrivate)
+  target_link_libraries(${PROJECT_NAME} PRIVATE Qt::GuiPrivate)
 endif()
 
 target_compile_options(
@@ -56,6 +55,10 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_SOURCE_DIR}/version.h)
+
+if(OS_WINDOWS)
+  configure_file(cmake/windows/resources/installer-Windows.iss.in "${CMAKE_CURRENT_BINARY_DIR}/installer-Windows.generated.iss")
+endif()
 
 target_sources(${PROJECT_NAME} PRIVATE
 	vertical-canvas.cpp
