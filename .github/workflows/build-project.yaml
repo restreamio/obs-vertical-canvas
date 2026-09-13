@@ -34,6 +34,12 @@ jobs:
           case "${GITHUB_EVENT_NAME}" in
             pull_request)
               config_data=('codesign:false' 'notarize:false' 'package:true' 'config:RelWithDebInfo')
+              # the "sign" label requests one signed build; the PR workflow removes the label afterwards
+              if gh pr view ${{ github.event.number }} --json labels \
+                | jq -e -r '.labels[] | select(.name == "sign")' > /dev/null; then
+                config_data[0]='codesign:true'
+                config_data[1]='notarize:true'
+              fi
               ;;
             push)
               if [[ "${GITHUB_REF_NAME}" == "master" ]]; then
