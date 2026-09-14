@@ -97,8 +97,8 @@ begin
     ObsMajorVersion := ObsMS shr 16; 
     { select only low 16 bits }
     ObsMinorVersion := ObsMS and $FFFF;
-    if ObsMajorVersion < 31 then begin
-        MsgBox('Version of OBS Studio (bin\64bit\obs64.exe) is lower than the version 31 required.', mbError, MB_OK);
+    if (ObsMajorVersion < 31) or ((ObsMajorVersion = 31) and (ObsMinorVersion < 1)) then begin
+        MsgBox('This plugin requires OBS Studio 31.1 or newer. Found OBS Studio ' + IntToStr(ObsMajorVersion) + '.' + IntToStr(ObsMinorVersion) + ' in bin\64bit\obs64.exe. Please update OBS Studio first.', mbError, MB_OK);
         Result := False;
         exit;
     end;

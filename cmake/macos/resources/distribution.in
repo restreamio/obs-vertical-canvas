@@ -28,6 +28,17 @@
                 my.result.type = 'Fatal';
                 return false;
             }
+
+            // the plugin links against the OBS 31.1 canvas API; older OBS cannot load it at all
+            var obsPlist = system.files.plistAtPath('/Applications/OBS.app/Contents/Info.plist');
+            if (obsPlist && obsPlist.CFBundleShortVersionString &&
+                system.compareVersions(obsPlist.CFBundleShortVersionString, '31.1.0') == -1) {
+                my.result.title = 'OBS Studio 31.1 or newer required';
+                my.result.message = 'Found OBS Studio ' + obsPlist.CFBundleShortVersionString +
+                                    ' in /Applications. Please update OBS Studio first.';
+                my.result.type = 'Fatal';
+                return false;
+            }
         }
     </script>
 </installer-gui-script>
