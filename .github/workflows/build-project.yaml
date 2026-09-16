@@ -342,25 +342,11 @@ jobs:
         id: stm-setup
         uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
 
-      # signtool finds the DigiCert key through the KSP only after the certificate is synced into the Windows store;
-      # healthcheck prints credential/keypair/tool status so a failed signing is diagnosable from the log
-      - name: DigiCert health check and certificate sync
-        if: success() && fromJSON(needs.check-event.outputs.codesign)
-        run: |
-          smctl healthcheck
-          smctl windows certsync
-        shell: cmd
-
-      # in simple signing mode the action runs smctl itself and fails the job on a signing error
-      # (a bare smctl sign exits 0 on FAILED; without this mode the action only installs the tools)
       - name: Sign Plugin DLL using DigiCert
         if: success() && fromJSON(needs.check-event.outputs.codesign)
-        uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
-        with:
-          # only simple signing mode makes the action run smctl itself; otherwise it just installs the tools
-          simple-signing-mode: true
-          keypair-alias: ${{ secrets.SM_KEYPAIR }}
-          input: ${{ github.workspace }}\release\${{ needs.check-event.outputs.config }}\${{ steps.setup.outputs.pluginName }}\bin\64bit\${{ steps.setup.outputs.pluginName }}.dll
+        run: |
+          smctl sign --keypair-alias ${{ secrets.SM_KEYPAIR }} --exit-non-zero-on-fail --input ".\release\${{ needs.check-event.outputs.config }}\${{ steps.setup.outputs.pluginName }}\bin\64bit\${{ steps.setup.outputs.pluginName }}.dll"
+        shell: cmd
 
       - name: Package Plugin 📀
         id: package
@@ -378,12 +364,9 @@ jobs:
 
       - name: Sign Installer using DigiCert
         if: success() && fromJSON(needs.check-event.outputs.codesign)
-        uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
-        with:
-          # only simple signing mode makes the action run smctl itself; otherwise it just installs the tools
-          simple-signing-mode: true
-          keypair-alias: ${{ secrets.SM_KEYPAIR }}
-          input: ${{ github.workspace }}\release\${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-Installer.exe
+        run: |
+          smctl sign --keypair-alias ${{ secrets.SM_KEYPAIR }} --exit-non-zero-on-fail --input "./release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-Installer.exe"
+        shell: cmd
 
       - name: Verify signatures
         if: success() && fromJSON(needs.check-event.outputs.codesign)
@@ -397,13 +380,6 @@ jobs:
             signtool verify /pa /v $f
             if ($LASTEXITCODE -ne 0) { throw "Not signed: $f" }
           }
-
-      - name: Show smctl log
-        if: failure() && fromJSON(needs.check-event.outputs.codesign)
-        shell: pwsh
-        run: |
-          $log = "$env:USERPROFILE\.signingmanager\logs\smctl.log"
-          if (Test-Path $log) { Get-Content $log -Tail 200 } else { Write-Host "no smctl log at $log" }
 
       - name: Upload Artifacts 📡
         if: steps.package.outcome == 'success'
