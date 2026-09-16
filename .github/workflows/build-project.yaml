@@ -351,11 +351,14 @@ jobs:
           smctl windows certsync
         shell: cmd
 
-      # the action itself runs smctl and fails the job on a signing error (a bare smctl sign exits 0 on FAILED)
+      # in simple signing mode the action runs smctl itself and fails the job on a signing error
+      # (a bare smctl sign exits 0 on FAILED; without this mode the action only installs the tools)
       - name: Sign Plugin DLL using DigiCert
         if: success() && fromJSON(needs.check-event.outputs.codesign)
         uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
         with:
+          # only simple signing mode makes the action run smctl itself; otherwise it just installs the tools
+          simple-signing-mode: true
           keypair-alias: ${{ secrets.SM_KEYPAIR }}
           input: ${{ github.workspace }}\release\${{ needs.check-event.outputs.config }}\${{ steps.setup.outputs.pluginName }}\bin\64bit\${{ steps.setup.outputs.pluginName }}.dll
 
@@ -377,6 +380,8 @@ jobs:
         if: success() && fromJSON(needs.check-event.outputs.codesign)
         uses: digicert/code-signing-software-trust-action@fae23a455ba4bde62b64fd7cb2f81ade788f5a95 # v1.2.1
         with:
+          # only simple signing mode makes the action run smctl itself; otherwise it just installs the tools
+          simple-signing-mode: true
           keypair-alias: ${{ secrets.SM_KEYPAIR }}
           input: ${{ github.workspace }}\release\${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-Installer.exe
 
