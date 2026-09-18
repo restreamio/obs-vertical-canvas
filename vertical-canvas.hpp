@@ -147,10 +147,11 @@ private:
 	matrix4 screenToItem{};
 	matrix4 itemToScreen{};
 	matrix4 invGroupTransform{};
+	bool clearing = false;
+	bool switching = false;
 	obs_scene_t *scene = nullptr;
-	obs_view_t *view = nullptr;
-	video_t *video = nullptr;
-	obs_view_t *multiCanvasView = nullptr;
+	obs_canvas_t *canvas = nullptr;
+	obs_canvas_t *multiCanvas = nullptr;
 	video_t *multiCanvasVideo = nullptr;
 	obs_source_t *multiCanvasSource = nullptr;
 	gs_texrender_t *texrender = nullptr;
@@ -186,11 +187,11 @@ private:
 	QAction *transitionsDockAction = nullptr;
 	OBSBasicSettings *configDialog = nullptr;
 
-	obs_hotkey_pair_id stream_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
 	obs_hotkey_pair_id record_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
 	obs_hotkey_pair_id virtual_cam_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
 	obs_hotkey_pair_id backtrack_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
 	obs_hotkey_pair_id pause_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
+	obs_hotkey_pair_id preview_hotkey = OBS_INVALID_HOTKEY_PAIR_ID;
 	obs_hotkey_id chapter_hotkey = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id split_hotkey = OBS_INVALID_HOTKEY_ID;
 
@@ -201,7 +202,6 @@ private:
 	uint32_t canvas_width;
 	uint32_t canvas_height;
 	bool restart_video = false;
-	bool hideScenes;
 	uint32_t streamingVideoBitrate;
 	uint32_t recordVideoBitrate;
 	uint32_t audioBitrate;
@@ -321,6 +321,7 @@ private:
 	void CenterSelectedItems(CenterType centerType);
 
 	void AddSourceToScene(obs_source_t *source);
+	void AddSourceTypeToMenu(QMenu *popup, const char *source_type, const char *name);
 
 	bool StartVideo();
 	void HandleRecordError(int code, QString last_error);
@@ -332,16 +333,13 @@ private:
 	bool HasScene(QString scene) const;
 	void CheckReplayBuffer(bool start = false);
 	void SendVendorEvent(const char *e);
-	QListWidget *GetGlobalScenesList();
-	void ResizeScenes();
-	void ResizeScene(QString scene_name);
 	void DeleteProjector(OBSProjector *projector);
 	OBSProjector *OpenProjector(int monitor);
 	void AddProjectorMenuMonitors(QMenu *parent, QObject *target, const char *slot);
 
 	void TryRemux(QString path);
 	void PatchMainUrl();
-	void RestoreMainUrl();
+	Q_INVOKABLE void RestoreMainUrl();
 	void StartStreamOutput(std::vector<StreamServer>::iterator it);
 	void CreateStreamOutput(std::vector<StreamServer>::iterator it);
 
@@ -373,10 +371,10 @@ private:
 	static bool stop_virtual_cam_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
 	static bool start_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
 	static bool stop_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
-	static bool start_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
-	static bool stop_streaming_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
 	static bool pause_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
 	static bool unpause_recording_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
+	static bool show_preview_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
+	static bool hide_preview_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed);
 	static void recording_chapter_hotkey(void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed);
 	static void recording_split_hotkey(void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed);
 
@@ -387,6 +385,10 @@ private:
 	static void transition_override_stop(void *data, calldata_t *);
 
 	static void get_transitions(void *data, struct obs_frontend_source_list *sources);
+	static void save_load(obs_data_t *save_data, bool saving, void *param);
+
+	static bool LogSceneItem(obs_scene_t *, obs_sceneitem_t *item, void *v_val);
+	static void LogFilter(obs_source_t *, obs_source_t *filter, void *v_val);
 
 private slots:
 	void AddSourceFromAction();
@@ -438,6 +440,7 @@ private slots:
 	void OpenPreviewProjector();
 	void OpenSourceProjector();
 	void SwitchBackToSelectedTransition();
+	void SceneRemoved(const QString name);
 
 	void UpdateInfoReady(QString data);
 	void UpdateInstallerReady(QString installerPath);
@@ -450,15 +453,17 @@ public:
 	~CanvasDock();
 
 	void ClearScenes();
+	void StartChangingSceneCollection() { switching = true; }
 	void StopOutputs();
 	void LoadScenes();
+	void LogScenes();
 	void FinishLoading();
 	void setAction(QAction *action);
 	CanvasScenesDock *GetScenesDock();
 	inline uint32_t GetCanvasWidth() const { return canvas_width; }
 	inline uint32_t GetCanvasHeight() const { return canvas_height; }
-	inline video_t *GetVideo() const { return video; }
-	inline obs_view_t *GetView() const { return view; }
+	inline video_t *GetVideo() const { return obs_canvas_get_video(canvas); }
+	inline QString GetScene() const { return currentSceneName; }
 	bool LoadStreamOutputs(obs_data_array_t *outputs);
 	obs_data_array_t *SaveStreamOutputs();
 	void StartStreamOutput(std::string name);

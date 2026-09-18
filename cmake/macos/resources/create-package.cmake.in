@@ -13,11 +13,36 @@ endif()
 
 make_directory("$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/temp")
 
+# Without a component plist the Installer refuses to "downgrade": it silently skips the plugin when the bundle
+# already on disk reports a higher version (an older build of ours, or the Aitum plugin with its own numbering).
+# Always replace whatever is installed at that path, regardless of its version or bundle identifier.
+file(WRITE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/temp/components.plist"
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<array>
+  <dict>
+    <key>RootRelativeBundlePath</key>
+    <string>Library/Application Support/obs-studio/plugins/@CMAKE_PROJECT_NAME@.plugin</string>
+    <key>BundleIsVersionChecked</key>
+    <false/>
+    <key>BundleHasStrictIdentifier</key>
+    <false/>
+    <key>BundleIsRelocatable</key>
+    <false/>
+    <key>BundleOverwriteAction</key>
+    <string>upgrade</string>
+  </dict>
+</array>
+</plist>
+")
+
 execute_process(
   COMMAND /usr/bin/pkgbuild
     --identifier '@MACOS_BUNDLEID@'
     --version '@CMAKE_PROJECT_VERSION@'
     --root "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/package"
+    --component-plist "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/temp/components.plist"
     "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/temp/@CMAKE_PROJECT_NAME@.pkg"
     COMMAND_ERROR_IS_FATAL ANY
   )

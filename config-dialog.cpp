@@ -25,6 +25,7 @@
 #include "version.h"
 #include "vertical-canvas.hpp"
 #include <util/dstr.h>
+#include <util/config-file.h>
 
 OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent) : QDialog(parent), canvasDock(canvas_dock)
 {
@@ -85,34 +86,6 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	scrollArea->setFrameShape(QFrame::NoFrame);
 	settingsPages->addWidget(scrollArea);
 
-	auto helpPage = new QWidget;
-	scrollArea = new QScrollArea;
-	scrollArea->setWidget(helpPage);
-	scrollArea->setWidgetResizable(true);
-	scrollArea->setLineWidth(0);
-	scrollArea->setFrameShape(QFrame::NoFrame);
-	// settingsPages->addWidget(scrollArea);
-
-	// Support page
-	QWidget *supportPage = new QWidget;
-	auto supportPageLayout = new QVBoxLayout;
-	supportPage->setLayout(supportPageLayout);
-
-	auto supportInfoBox = new QGroupBox(QString::fromUtf8(obs_module_text("SupportTitle")));
-	supportInfoBox->setStyleSheet("padding-top: 12px");
-	auto supportLayout = new QVBoxLayout;
-	supportInfoBox->setLayout(supportLayout);
-
-	auto supportLabel = new QLabel(QString::fromUtf8(obs_module_text("SupportText")));
-	supportLabel->setStyleSheet("font-size: 14px");
-	supportLabel->setWordWrap(true);
-	supportLabel->setTextFormat(Qt::RichText);
-	supportLabel->setOpenExternalLinks(true);
-	supportLayout->addWidget(supportLabel, 1);
-	supportPageLayout->addWidget(supportInfoBox, 1, Qt::AlignTop);
-
-	// settingsPages->addWidget(supportPage);
-
 	connect(listWidget, &QListWidget::currentRowChanged, settingsPages, &QStackedWidget::setCurrentIndex);
 
 	auto generalGroup = new QGroupBox;
@@ -167,9 +140,6 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	resolution->addItem("3840x2160");
 
 	generalLayout->addRow(QString::fromUtf8(obs_module_text("Resolution")), resolution);
-
-	showScenes = new QCheckBox(QString::fromUtf8(obs_module_text("ShowScenes")));
-	generalLayout->addWidget(showScenes);
 
 	audioBitrate = new QComboBox;
 	audioBitrate->addItem("64", QVariant(64));
@@ -548,13 +518,21 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 		multistream_warning_widget->setStyleSheet(
 			"QGroupBox { background: #332701; border: 1px solid #997404; color: #ffda6a; padding-top: 16px; }");
 
-		auto multistream_warning_label = new QLabel(QString::fromUtf8(obs_module_text("OutputsMulistream")));
+		auto multistream_warning_label = new QLabel(QString::fromUtf8(obs_module_text("OutputsMultistream")));
 		multistream_warning_label->setStyleSheet("color: #ffda6a; font-weight: bold;");
 
 		multistream_warning_layout->addWidget(multistream_warning_label);
 		multistream_warning_widget->setLayout(multistream_warning_layout);
 		vb->addWidget(multistream_warning_widget);
 	}
+
+	auto multitrackGroup = new QGroupBox(QString::fromUtf8(obs_frontend_get_locale_string("Multitrack")));
+	auto multitrackLayout = new QVBoxLayout;
+	multitrackGroup->setLayout(multitrackLayout);
+	multitrackLabel = new QLabel(QString::fromUtf8(obs_module_text("MultitrackDisabled")));
+	multitrackLayout->addWidget(multitrackLabel);
+	vb->addWidget(multitrackGroup);
+
 
 	vb->addWidget(streamingGroup);
 	// vb->addWidget(streamingAdvancedGroup);
@@ -589,7 +567,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	connect(button, &QPushButton::clicked, [this] {
 		const QString dir = QFileDialog::getExistingDirectory(
 			this, QString::fromUtf8(obs_frontend_get_locale_string("Basic.Settings.Output.Simple.SavePath")),
-			backtrackPath->text(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+			recordPath->text(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 		if (dir.isEmpty())
 			return;
 		recordPath->setText(dir);
@@ -802,8 +780,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 
 	fileFormat = new QComboBox;
 	fileFormat->addItem(QString::fromUtf8("mp4"));
-	if (obs_get_version() >= MAKE_SEMANTIC_VERSION(30, 2, 0))
-		fileFormat->addItem(QString::fromUtf8("hybrid_mp4"));
+	fileFormat->addItem(QString::fromUtf8("hybrid_mp4"));
 	fileFormat->addItem(QString::fromUtf8("fragmented_mp4"));
 	fileFormat->addItem(QString::fromUtf8("mov"));
 	fileFormat->addItem(QString::fromUtf8("fragmented_mov"));
@@ -880,62 +857,6 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 	vb->addWidget(recordingAdvancedGroup);
 	vb->addStretch();
 	recordingPage->setLayout(vb);
-
-	// HELP PAGE
-	auto helpButtonGroup = new QWidget();
-	auto helpButtonGroupLayout = new QVBoxLayout();
-	helpButtonGroupLayout->setContentsMargins(0, 0, 0, 0);
-
-	helpButtonGroupLayout->setSpacing(5);
-	helpButtonGroup->setLayout(helpButtonGroupLayout);
-
-	// intro text
-	auto helpTitle = new QLabel;
-	helpTitle->setText(QString::fromUtf8(obs_module_text("Help")));
-	helpTitle->setStyleSheet(QString::fromUtf8("font-weight: bold;"));
-	helpButtonGroupLayout->addWidget(helpTitle);
-
-	// intro desc
-	auto introDesc = new QLabel;
-	introDesc->setText(QString::fromUtf8(obs_module_text("HelpIntro")));
-
-	helpButtonGroupLayout->addWidget(introDesc);
-
-	// troubleshooter button
-	auto tsButton = new QPushButton;
-	tsButton->setObjectName(QStringLiteral("tsButton"));
-	tsButton->setCheckable(false);
-	tsButton->setText(QString::fromUtf8(obs_module_text("HelpTroubleshooterButton")));
-
-	connect(tsButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://l.aitum.tv/vh-ts")); });
-
-	helpButtonGroupLayout->addWidget(tsButton);
-
-	// guides button
-	auto guideButton = new QPushButton;
-	guideButton->setObjectName(QStringLiteral("guideButton"));
-	guideButton->setCheckable(false);
-	guideButton->setText(QString::fromUtf8(obs_module_text("HelpGuideButton")));
-
-	connect(guideButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://l.aitum.tv/vh-guides")); });
-
-	helpButtonGroupLayout->addWidget(guideButton);
-
-	// discord button
-	auto discordButton = new QPushButton;
-	discordButton->setObjectName(QStringLiteral("discordButton"));
-	discordButton->setCheckable(false);
-	discordButton->setText(QString::fromUtf8(obs_module_text("HelpDiscordButton")));
-
-	connect(discordButton, &QPushButton::clicked, [] { QDesktopServices::openUrl(QUrl("https://aitum.tv/discord")); });
-
-	helpButtonGroupLayout->addWidget(discordButton);
-
-	vb = new QVBoxLayout;
-	vb->setContentsMargins(0, 0, 0, 0);
-	vb->addWidget(helpButtonGroup);
-	vb->addStretch();
-	helpPage->setLayout(vb);
 
 	QPushButton *okButton = new QPushButton(QString::fromUtf8(obs_frontend_get_locale_string("OK")));
 	connect(okButton, &QPushButton::clicked, [this] {
@@ -1102,7 +1023,9 @@ void OBSBasicSettings::SetAdvancedIcon(const QIcon &icon)
 void OBSBasicSettings::AddServer()
 {
 	// int idx = (int)servers.size();
-	auto serverGroup = new QGroupBox;
+	// not inserted into the layout, but SaveSettings still reads these fields: parent + hide instead of leaking
+	auto serverGroup = new QGroupBox(this);
+	serverGroup->hide();
 	serverGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 	serverGroup->setStyleSheet(QString("QGroupBox{background-color: %1; padding-top: 4px;}")
 					   .arg(palette().color(QPalette::ColorRole::Mid).name(QColor::HexRgb)));
@@ -1174,7 +1097,6 @@ void OBSBasicSettings::LoadSettings()
 	}
 
 	resolution->setEnabled(enable);
-	showScenes->setChecked(!canvasDock->hideScenes);
 	virtualCameraMode->setCurrentIndex(canvasDock->virtual_cam_mode);
 	recordVideoBitrate->setValue(canvasDock->recordVideoBitrate ? canvasDock->recordVideoBitrate : 6000);
 	maxTimeEnable->setChecked(canvasDock->max_time_sec > 0);
@@ -1192,6 +1114,19 @@ void OBSBasicSettings::LoadSettings()
 	backtrackClip->setChecked(canvasDock->startReplay);
 	backtrackDuration->setValue(canvasDock->replayDuration);
 	backtrackPath->setText(QString::fromUtf8(canvasDock->replayPath));
+
+	auto profile_config = obs_frontend_get_profile_config();
+	if (config_get_bool(profile_config, "Stream1", "EnableMultitrackVideo")) {
+		auto canvas_id = config_get_string(profile_config, "Stream1", "MultitrackExtraCanvas");
+		if (canvas_id && strcmp(canvas_id, obs_canvas_get_uuid(canvasDock->canvas)) == 0) {
+			multitrackLabel->setText(QString::fromUtf8(obs_module_text("MultitrackVerticalSelected")));
+		} else {
+			multitrackLabel->setText(QString::fromUtf8(obs_module_text("MultitrackVerticalNotSelected")));
+		}
+	} else {
+		multitrackLabel->setText(QString::fromUtf8(obs_module_text("MultitrackDisabled")));
+	}
+
 	if (!canvasDock->disable_stream_settings) {
 		for (size_t idx = 0; idx < canvasDock->streamOutputs.size(); idx++) {
 			if (idx >= servers.size()) {
@@ -1260,16 +1195,6 @@ void OBSBasicSettings::SaveSettings()
 		hw->Save();
 	}
 
-	if (canvasDock->hideScenes == showScenes->isChecked()) {
-		canvasDock->hideScenes = !showScenes->isChecked();
-		auto sl = canvasDock->GetGlobalScenesList();
-		for (int j = 0; j < sl->count(); j++) {
-			auto item = sl->item(j);
-			if (canvasDock->HasScene(item->text())) {
-				item->setHidden(canvasDock->hideScenes);
-			}
-		}
-	}
 	const auto res = resolution->currentText();
 	uint32_t width, height;
 	if (sscanf(res.toUtf8().constData(), "%dx%d", &width, &height) == 2 && width > 0 && height > 0 &&
@@ -1282,8 +1207,14 @@ void OBSBasicSettings::SaveSettings()
 
 		canvasDock->canvas_width = width;
 		canvasDock->canvas_height = height;
+		obs_video_info ovi;
+		obs_get_video_info(&ovi);
+		ovi.base_width = width;
+		ovi.base_height = height;
+		ovi.output_width = width;
+		ovi.output_height = height;
+		obs_canvas_reset_video(canvasDock->canvas, &ovi);
 
-		canvasDock->ResizeScenes();
 		auto t = obs_weak_source_get_source(canvasDock->source);
 		if (obs_source_get_type(t) == OBS_SOURCE_TYPE_TRANSITION) {
 			obs_transition_set_size(t, width, height);
@@ -1756,30 +1687,6 @@ void OBSBasicSettings::AddProperty(obs_property_t *property, obs_data_t *setting
 				widget->setCurrentIndex(idx);
 		}
 
-		if (obs_data_has_autoselect_value(settings, name)) {
-			switch (format) {
-			case OBS_COMBO_FORMAT_INT:
-				value = QVariant::fromValue(obs_data_get_autoselect_int(settings, name));
-				break;
-			case OBS_COMBO_FORMAT_FLOAT:
-				value = QVariant::fromValue(obs_data_get_autoselect_double(settings, name));
-				break;
-			case OBS_COMBO_FORMAT_STRING:
-				value = QByteArray(obs_data_get_autoselect_string(settings, name));
-				break;
-			default:;
-			}
-			int id = widget->findData(value);
-
-			auto idx = widget->currentIndex();
-			if (id != -1 && id != idx) {
-				QString actual = widget->itemText(id);
-				QString selected = widget->itemText(widget->currentIndex());
-				QString combined = QString::fromUtf8(
-					obs_frontend_get_locale_string("Basic.PropertiesWindow.AutoSelectFormat"));
-				widget->setItemText(idx, combined.arg(selected).arg(actual));
-			}
-		}
 		auto label = new QLabel(QString::fromUtf8(obs_property_description(property)));
 		layout->addRow(label, widget);
 		if (!obs_property_visible(property)) {

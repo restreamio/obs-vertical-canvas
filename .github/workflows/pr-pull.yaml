@@ -7,7 +7,7 @@ on:
       - '**.md'
     branches: 
       - master
-    types: [ opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened, labeled ]
 permissions:
   contents: read
 concurrency:
@@ -22,7 +22,23 @@ jobs:
 
   build-project:
     name: Build Project 🧱
+    # a label event only matters when it is the "sign" label
+    if: github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'sign'
     uses: ./.github/workflows/build-project.yaml
     secrets: inherit
     permissions:
       contents: read
+      pull-requests: read
+
+  remove-sign-label:
+    name: Remove sign label 🏷️
+    needs: build-project
+    if: always() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'sign')
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove label 🏷️
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit ${{ github.event.number }} --repo ${{ github.repository }} --remove-label sign
