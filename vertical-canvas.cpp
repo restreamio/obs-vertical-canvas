@@ -684,9 +684,10 @@ bool version_info_downloaded(void *param, struct file_download_data *file)
 
 bool obs_module_load(void)
 {
-	if (obs_get_version() < MAKE_SEMANTIC_VERSION(30, 0, 0)) {
-		blog(LOG_ERROR, "[Vertical Plugin] loading version %s failed, OBS version %s is to low", PROJECT_VERSION,
-		     obs_get_version_string());
+	// the canvas API this plugin is built on exists since OBS 31.1
+	if (obs_get_version() < MAKE_SEMANTIC_VERSION(31, 1, 0)) {
+		blog(LOG_ERROR, "[Vertical Plugin] loading version %s failed, OBS version %s is too low, 31.1 or newer required",
+		     PROJECT_VERSION, obs_get_version_string());
 		return false;
 	}
 	if (obs_get_module("aitum-stream-suite")) {
