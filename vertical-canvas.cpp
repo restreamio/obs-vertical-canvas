@@ -64,6 +64,47 @@ OBS_MODULE_USE_DEFAULT_LOCALE("vertical-canvas", "en-US")
 
 inline std::list<CanvasDock *> canvas_docks;
 
+// With multitrack video on, OBS itself carries the vertical canvas as extra tracks of the enhanced RTMP stream,
+// so the main service url and our own output must stay out of the way. Once that output is prepared (before
+// STREAMING_STARTING) the frontend hands it out instead of the regular one, named "<proto> multitrack video".
+static bool multitrack_video_streaming()
+{
+	auto streaming_output = obs_frontend_get_streaming_output();
+	if (!streaming_output) {
+		return false;
+	}
+	const char *name = obs_output_get_name(streaming_output);
+	bool multitrack = name && strstr(name, "multitrack video") != nullptr;
+	obs_output_release(streaming_output);
+	return multitrack;
+}
+
+// Mirrors how OBS decides to build the multitrack output (BasicOutputHandler ctor): an explicit
+// Stream1/EnableMultitrackVideo wins; without it OBS 31.1 turns multitrack on when the service advertises a
+// config url, OBS 32 keeps it off and additionally requires that url or a custom service.
+static bool multitrack_video_enabled()
+{
+	config_t *config = obs_frontend_get_profile_config();
+	const bool explicit_setting = config_has_user_value(config, "Stream1", "EnableMultitrackVideo");
+	const bool obs32 = obs_get_version() >= MAKE_SEMANTIC_VERSION(32, 0, 0);
+	if (explicit_setting && !config_get_bool(config, "Stream1", "EnableMultitrackVideo")) {
+		return false;
+	}
+	if (!explicit_setting && obs32) {
+		return false;
+	}
+	obs_service_t *service = obs_frontend_get_streaming_service();
+	if (!service) {
+		return false;
+	}
+	if (explicit_setting && !obs32) {
+		return true;
+	}
+	OBSDataAutoRelease settings = obs_service_get_settings(service);
+	return obs_data_has_user_value(settings, "multitrack_video_configuration_url") ||
+	       (obs32 && strcmp(obs_service_get_id(service), "rtmp_custom") == 0);
+}
+
 void clear_canvas_docks()
 {
 	for (const auto &it : canvas_docks) {
@@ -1499,6 +1540,14 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 			break;
 		}
 
+		// enhanced RTMP: OBS streams the canvas itself, the button only reports what OBS does
+		const bool multitrack = multitrack_video_enabled();
+		if (streamButtonText.isEmpty() && multitrack_stream_start_ns) {
+			auto t = QTime::fromMSecsSinceStartOfDay((int)((os_gettime_ns() - multitrack_stream_start_ns) / 1000000ULL));
+			streamButtonText = t.toString(t.hour() ? "hh:mm:ss" : "mm:ss");
+			streamActive = true;
+		}
+
 		// If we have stopping flag and still have active stream, override text
 		if (stream_stopping && !streamButtonText.isEmpty()) {
 			streamButtonText = QString::fromUtf8(obs_module_text("StreamStopping"));
@@ -1513,7 +1562,27 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 		
 		// If we no text, set default
 		if (streamButtonText.isEmpty()) {
-			streamButtonText = enable_vertical ? QString::fromUtf8(obs_module_text("AutostartEnabled")) : QString::fromUtf8(obs_module_text("AutostartDisabled"));
+			if (multitrack) {
+				streamButtonText = QString::fromUtf8(obs_module_text("MultitrackMode"));
+			} else {
+				streamButtonText = enable_vertical ? QString::fromUtf8(obs_module_text("AutostartEnabled")) : QString::fromUtf8(obs_module_text("AutostartDisabled"));
+			}
+		}
+
+		// the autostart toggle must not flip while OBS owns the vertical output
+		if (streamButton->isEnabled() == multitrack) {
+			streamButton->setEnabled(!multitrack);
+		}
+		QString tooltip;
+		if (!multitrack) {
+			tooltip = QString::fromUtf8(obs_module_text("EnableDisableStreamVertical"));
+		} else {
+			const char *canvas_id = config_get_string(obs_frontend_get_profile_config(), "Stream1", "MultitrackExtraCanvas");
+			const bool selected = canvas && canvas_id && strcmp(canvas_id, obs_canvas_get_uuid(canvas)) == 0;
+			tooltip = QString::fromUtf8(obs_module_text(selected ? "MultitrackModeTooltip" : "MultitrackVerticalNotSelected"));
+		}
+		if (streamButton->toolTip() != tooltip) {
+			streamButton->setToolTip(tooltip);
 		}
 
 		// Show stream time on Stream Button
@@ -1523,7 +1592,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 				streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,210,153);}"));
 			} 
 			else {
-				streamButton->setIcon(enable_vertical ? streamInactiveIcon : QIcon());
+				streamButton->setIcon(!multitrack && enable_vertical ? streamInactiveIcon : QIcon());
 				streamButton->setStyleSheet(QString::fromUtf8(""));
 			}
 
@@ -6405,6 +6474,10 @@ void CanvasDock::replay_output_stop(void *data, calldata_t *calldata)
 
 void CanvasDock::StreamButtonClicked()
 {
+	// the button is disabled in multitrack mode, keep hotkeys/scripts from flipping the flag as well
+	if (multitrack_video_enabled()) {
+		return;
+	}
 	enable_vertical = !enable_vertical;
 	save_canvas();
 
@@ -8465,21 +8538,6 @@ QIcon CanvasDock::GetGroupIcon() const
 	return main_window->property("groupIcon").value<QIcon>();
 }
 
-// With multitrack video on, OBS itself carries the vertical canvas as extra tracks of the enhanced RTMP stream,
-// so the main service url and our own output must stay out of the way. Once that output is prepared (before
-// STREAMING_STARTING) the frontend hands it out instead of the regular one, named "<proto> multitrack video".
-static bool multitrack_video_streaming()
-{
-	auto streaming_output = obs_frontend_get_streaming_output();
-	if (!streaming_output) {
-		return false;
-	}
-	const char *name = obs_output_get_name(streaming_output);
-	bool multitrack = name && strstr(name, "multitrack video") != nullptr;
-	obs_output_release(streaming_output);
-	return multitrack;
-}
-
 void CanvasDock::MainStreamStarting()
 {
 	blog(LOG_INFO, "[Vertical Plugin] Main stream starting");
@@ -8498,7 +8556,20 @@ void CanvasDock::MainStreamStart()
 
 	CheckReplayBuffer(true);
 	if (multitrack_video_streaming()) {
-		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, own vertical output not started");
+		// the button shows the stream time only when OBS really carries this canvas
+		auto streaming_output = obs_frontend_get_streaming_output();
+		if (streaming_output) {
+			for (size_t idx = 0; idx < MAX_OUTPUT_VIDEO_ENCODERS; idx++) {
+				auto enc = obs_output_get_video_encoder2(streaming_output, idx);
+				if (enc && obs_encoder_active(enc) && canvas && obs_encoder_video(enc) == obs_canvas_get_video(canvas)) {
+					multitrack_stream_start_ns = os_gettime_ns();
+					break;
+				}
+			}
+			obs_output_release(streaming_output);
+		}
+		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, own vertical output not started%s",
+		     multitrack_stream_start_ns ? "" : ", canvas is not part of the multitrack stream");
 		return;
 	}
 	// if (streamingMatchMain || true)
@@ -8511,6 +8582,7 @@ void CanvasDock::MainStreamStop()
 {
 	blog(LOG_INFO, "[Vertical Plugin] Main stream stop");
 
+	multitrack_stream_start_ns = 0;
 	CheckReplayBuffer();
 	// if (streamingMatchMain || true)
 	StopStream();

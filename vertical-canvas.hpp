@@ -244,6 +244,7 @@ private:
 	bool enable_vertical = true;
 	bool stream_starting = false;
 	bool stream_stopping = false;
+	uint64_t multitrack_stream_start_ns = 0;
 
 	QColor GetSelectionColor() const;
 	QColor GetCropColor() const;
