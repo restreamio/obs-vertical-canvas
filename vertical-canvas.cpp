@@ -8465,10 +8465,29 @@ QIcon CanvasDock::GetGroupIcon() const
 	return main_window->property("groupIcon").value<QIcon>();
 }
 
+// With multitrack video on, OBS itself carries the vertical canvas as extra tracks of the enhanced RTMP stream,
+// so the main service url and our own output must stay out of the way. Once that output is prepared (before
+// STREAMING_STARTING) the frontend hands it out instead of the regular one, named "<proto> multitrack video".
+static bool multitrack_video_streaming()
+{
+	auto streaming_output = obs_frontend_get_streaming_output();
+	if (!streaming_output) {
+		return false;
+	}
+	const char *name = obs_output_get_name(streaming_output);
+	bool multitrack = name && strstr(name, "multitrack video") != nullptr;
+	obs_output_release(streaming_output);
+	return multitrack;
+}
+
 void CanvasDock::MainStreamStarting()
 {
 	blog(LOG_INFO, "[Vertical Plugin] Main stream starting");
 
+	if (multitrack_video_streaming()) {
+		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, main stream url left as is");
+		return;
+	}
 	if (enable_vertical)
 		PatchMainUrl();
 }
@@ -8478,6 +8497,10 @@ void CanvasDock::MainStreamStart()
 	blog(LOG_INFO, "[Vertical Plugin] Main stream start");
 
 	CheckReplayBuffer(true);
+	if (multitrack_video_streaming()) {
+		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, own vertical output not started");
+		return;
+	}
 	// if (streamingMatchMain || true)
 	if (enable_vertical) {
 		StartStream();
