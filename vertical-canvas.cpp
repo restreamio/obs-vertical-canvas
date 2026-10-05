@@ -82,7 +82,7 @@ static bool multitrack_video_streaming()
 // Mirrors how OBS decides to build the multitrack output (BasicOutputHandler ctor): an explicit
 // Stream1/EnableMultitrackVideo wins; without it OBS 31.1 turns multitrack on when the service advertises a
 // config url, OBS 32 keeps it off and additionally requires that url or a custom service.
-static bool multitrack_video_enabled()
+bool multitrack_video_enabled()
 {
 	config_t *config = obs_frontend_get_profile_config();
 	const bool explicit_setting = config_has_user_value(config, "Stream1", "EnableMultitrackVideo");
@@ -1569,10 +1569,6 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 			}
 		}
 
-		// the autostart toggle must not flip while OBS owns the vertical output
-		if (streamButton->isEnabled() == multitrack) {
-			streamButton->setEnabled(!multitrack);
-		}
 		QString tooltip;
 		if (!multitrack) {
 			tooltip = QString::fromUtf8(obs_module_text("EnableDisableStreamVertical"));
@@ -6474,7 +6470,7 @@ void CanvasDock::replay_output_stop(void *data, calldata_t *calldata)
 
 void CanvasDock::StreamButtonClicked()
 {
-	// the button is disabled in multitrack mode, keep hotkeys/scripts from flipping the flag as well
+	// in multitrack mode OBS owns the vertical output, the autostart flag must not flip from a click
 	if (multitrack_video_enabled()) {
 		return;
 	}

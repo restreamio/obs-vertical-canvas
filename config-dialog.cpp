@@ -27,6 +27,9 @@
 #include <util/dstr.h>
 #include <util/config-file.h>
 
+// vertical-canvas.cpp, the same rule the stream button uses
+bool multitrack_video_enabled();
+
 OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent) : QDialog(parent), canvasDock(canvas_dock)
 {
 	setMinimumWidth(983);
@@ -526,7 +529,7 @@ OBSBasicSettings::OBSBasicSettings(CanvasDock *canvas_dock, QMainWindow *parent)
 		vb->addWidget(multistream_warning_widget);
 	}
 
-	auto multitrackGroup = new QGroupBox(QString::fromUtf8(obs_frontend_get_locale_string("Multitrack")));
+	auto multitrackGroup = new QGroupBox(QString::fromUtf8(obs_module_text("MultitrackMode")));
 	auto multitrackLayout = new QVBoxLayout;
 	multitrackGroup->setLayout(multitrackLayout);
 	multitrackLabel = new QLabel(QString::fromUtf8(obs_module_text("MultitrackDisabled")));
@@ -1115,10 +1118,9 @@ void OBSBasicSettings::LoadSettings()
 	backtrackDuration->setValue(canvasDock->replayDuration);
 	backtrackPath->setText(QString::fromUtf8(canvasDock->replayPath));
 
-	auto profile_config = obs_frontend_get_profile_config();
-	if (config_get_bool(profile_config, "Stream1", "EnableMultitrackVideo")) {
-		auto canvas_id = config_get_string(profile_config, "Stream1", "MultitrackExtraCanvas");
-		if (canvas_id && strcmp(canvas_id, obs_canvas_get_uuid(canvasDock->canvas)) == 0) {
+	if (multitrack_video_enabled()) {
+		auto canvas_id = config_get_string(obs_frontend_get_profile_config(), "Stream1", "MultitrackExtraCanvas");
+		if (canvas_id && canvasDock->canvas && strcmp(canvas_id, obs_canvas_get_uuid(canvasDock->canvas)) == 0) {
 			multitrackLabel->setText(QString::fromUtf8(obs_module_text("MultitrackVerticalSelected")));
 		} else {
 			multitrackLabel->setText(QString::fromUtf8(obs_module_text("MultitrackVerticalNotSelected")));
