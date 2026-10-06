@@ -61,6 +61,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE("vertical-canvas", "en-US")
 #define SPACER_LABEL_MARGIN 6.0f
 
 #define CANVAS_NAME "Restream Vertical"
+// canvas of the upstream Aitum plugin: it stays in the scene collection after this fork replaces that plugin
+#define AITUM_CANVAS_NAME "Aitum Vertical"
 
 inline std::list<CanvasDock *> canvas_docks;
 
@@ -5287,20 +5289,59 @@ void CanvasDock::AddSourceFromAction()
 bool CanvasDock::StartVideo()
 {
 	obs_canvas_t *c = nullptr;
+	obs_canvas_t *aitum_canvas = nullptr;
 	obs_frontend_canvas_list cl = {};
 	obs_frontend_get_canvases(&cl);
 	for (size_t i = 0; i < cl.canvases.num; i++) {
-		if (strcmp(obs_canvas_get_name(cl.canvases.array[i]), CANVAS_NAME) == 0 &&
-		    !obs_canvas_removed(cl.canvases.array[i])) {
+		if (obs_canvas_removed(cl.canvases.array[i])) {
+			continue;
+		}
+		const char *name = obs_canvas_get_name(cl.canvases.array[i]);
+		if (!c && strcmp(name, CANVAS_NAME) == 0) {
 			c = obs_canvas_get_ref(cl.canvases.array[i]);
-			break;
+		} else if (!aitum_canvas && strcmp(name, AITUM_CANVAS_NAME) == 0) {
+			aitum_canvas = obs_canvas_get_ref(cl.canvases.array[i]);
 		}
 	}
 	obs_frontend_canvas_list_free(&cl);
+	if (aitum_canvas && !c) {
+		// take over the Aitum canvas instead of creating an empty one, so the vertical scenes made with the upstream plugin stay
+		obs_canvas_set_name(aitum_canvas, CANVAS_NAME);
+		blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' renamed to '%s'", AITUM_CANVAS_NAME, CANVAS_NAME);
+		c = aitum_canvas;
+		aitum_canvas = nullptr;
+	}
 	if (canvas) {
 		obs_canvas_release(canvas);
 	}
 	canvas = c ? c : obs_frontend_add_canvas(CANVAS_NAME, nullptr, PROGRAM);
+	if (aitum_canvas) {
+		// a leftover Aitum canvas only clutters the Additional Canvas list of OBS; if that list points at it, point it at ours
+		auto config = obs_frontend_get_profile_config();
+		const char *extra_canvas = config_get_string(config, "Stream1", "MultitrackExtraCanvas");
+		if (extra_canvas && strcmp(extra_canvas, obs_canvas_get_uuid(aitum_canvas)) == 0) {
+			config_set_string(config, "Stream1", "MultitrackExtraCanvas", obs_canvas_get_uuid(canvas));
+		}
+		// scenes of a canvas that no longer exists are loaded into the main canvas, so they go away together with it
+		std::list<obs_source_t *> scenes;
+		obs_canvas_enum_scenes(
+			aitum_canvas,
+			[](void *param, obs_source_t *scene) {
+				auto s = obs_source_get_ref(scene);
+				if (s) {
+					((std::list<obs_source_t *> *)param)->push_back(s);
+				}
+				return true;
+			},
+			&scenes);
+		for (auto scene : scenes) {
+			obs_source_remove(scene);
+			obs_source_release(scene);
+		}
+		obs_frontend_remove_canvas(aitum_canvas);
+		obs_canvas_release(aitum_canvas);
+		blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' removed with %zu scenes", AITUM_CANVAS_NAME, scenes.size());
+	}
 	auto ph = obs_get_proc_handler();
 	calldata_t cd2 = {0};
 	calldata_set_ptr(&cd2, "canvas", canvas);
