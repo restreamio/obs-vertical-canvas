@@ -1560,22 +1560,30 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 			streamActive = true;
 		}
 		
+		bool canvas_selected = false;
+		if (multitrack) {
+			const char *canvas_id = config_get_string(obs_frontend_get_profile_config(), "Stream1", "MultitrackExtraCanvas");
+			canvas_selected = canvas && canvas_id && strcmp(canvas_id, obs_canvas_get_uuid(canvas)) == 0;
+		}
+
 		// If we no text, set default
 		if (streamButtonText.isEmpty()) {
 			if (multitrack) {
-				streamButtonText = QString::fromUtf8(obs_module_text("MultitrackMode"));
+				streamButtonText = QString::fromUtf8(obs_module_text(canvas_selected ? "MultitrackButton" : "MultitrackNoCanvas"));
 			} else {
 				streamButtonText = enable_vertical ? QString::fromUtf8(obs_module_text("AutostartEnabled")) : QString::fromUtf8(obs_module_text("AutostartDisabled"));
 			}
 		}
 
+		// in multitrack mode the button is a status only: no hover, no click, same look as the autostart state
+		if (streamButton->testAttribute(Qt::WA_TransparentForMouseEvents) != multitrack) {
+			streamButton->setAttribute(Qt::WA_TransparentForMouseEvents, multitrack);
+		}
 		QString tooltip;
 		if (!multitrack) {
 			tooltip = QString::fromUtf8(obs_module_text("EnableDisableStreamVertical"));
 		} else {
-			const char *canvas_id = config_get_string(obs_frontend_get_profile_config(), "Stream1", "MultitrackExtraCanvas");
-			const bool selected = canvas && canvas_id && strcmp(canvas_id, obs_canvas_get_uuid(canvas)) == 0;
-			tooltip = QString::fromUtf8(obs_module_text(selected ? "MultitrackModeTooltip" : "MultitrackVerticalNotSelected"));
+			tooltip = QString::fromUtf8(obs_module_text(canvas_selected ? "MultitrackModeTooltip" : "MultitrackVerticalNotSelected"));
 		}
 		if (streamButton->toolTip() != tooltip) {
 			streamButton->setToolTip(tooltip);
@@ -1588,7 +1596,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 				streamButton->setStyleSheet(QString::fromUtf8("QPushButton{background: rgb(0,210,153);}"));
 			} 
 			else {
-				streamButton->setIcon(!multitrack && enable_vertical ? streamInactiveIcon : QIcon());
+				streamButton->setIcon((multitrack ? canvas_selected : enable_vertical) ? streamInactiveIcon : QIcon());
 				streamButton->setStyleSheet(QString::fromUtf8(""));
 			}
 
@@ -7148,7 +7156,6 @@ void CanvasDock::StartStream()
 void CanvasDock::StopStream()
 {
 	stream_starting = false;
-	stream_stopping = true;
 
 	bool done = false;
 	for (auto it = streamOutputs.begin(); it != streamOutputs.end(); ++it) {
@@ -7157,6 +7164,9 @@ void CanvasDock::StopStream()
 			done = true;
 		}
 	}
+	// only the output stop callback clears this flag, so raise it only when a stop was really requested;
+	// otherwise it stays set forever and the next multitrack stream shows "Stopping"
+	stream_stopping = done;
 	if (done) {
 		SendVendorEvent("streaming_stopping");
 	}
