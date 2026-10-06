@@ -1543,7 +1543,7 @@ CanvasDock::CanvasDock(obs_data_t *settings, QWidget *parent)
 		}
 
 		// enhanced RTMP: OBS streams the canvas itself, the button only reports what OBS does
-		const bool multitrack = multitrack_video_enabled();
+		const bool multitrack = MultitrackMode();
 		if (streamButtonText.isEmpty() && multitrack_stream_start_ns) {
 			auto t = QTime::fromMSecsSinceStartOfDay((int)((os_gettime_ns() - multitrack_stream_start_ns) / 1000000ULL));
 			streamButtonText = t.toString(t.hour() ? "hh:mm:ss" : "mm:ss");
@@ -5305,11 +5305,21 @@ bool CanvasDock::StartVideo()
 	}
 	obs_frontend_canvas_list_free(&cl);
 	if (aitum_canvas && !c) {
-		// take over the Aitum canvas instead of creating an empty one, so the vertical scenes made with the upstream plugin stay
-		obs_canvas_set_name(aitum_canvas, CANVAS_NAME);
-		blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' renamed to '%s'", AITUM_CANVAS_NAME, CANVAS_NAME);
-		c = aitum_canvas;
-		aitum_canvas = nullptr;
+		// a canvas with our name can still be alive outside the OBS list (held by a running multitrack output after a
+		// collection switch); libobs would then rename to "Restream Vertical 2", so leave the migration for a later start
+		obs_canvas_t *alive = obs_get_canvas_by_name(CANVAS_NAME);
+		if (alive) {
+			obs_canvas_release(alive);
+			obs_canvas_release(aitum_canvas);
+			aitum_canvas = nullptr;
+			blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' left as is, '%s' still exists", AITUM_CANVAS_NAME, CANVAS_NAME);
+		} else {
+			// take over the Aitum canvas instead of creating an empty one, so the vertical scenes made with the upstream plugin stay
+			obs_canvas_set_name(aitum_canvas, CANVAS_NAME);
+			blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' renamed to '%s'", AITUM_CANVAS_NAME, CANVAS_NAME);
+			c = aitum_canvas;
+			aitum_canvas = nullptr;
+		}
 	}
 	if (canvas) {
 		obs_canvas_release(canvas);
@@ -5321,6 +5331,8 @@ bool CanvasDock::StartVideo()
 		const char *extra_canvas = config_get_string(config, "Stream1", "MultitrackExtraCanvas");
 		if (extra_canvas && strcmp(extra_canvas, obs_canvas_get_uuid(aitum_canvas)) == 0) {
 			config_set_string(config, "Stream1", "MultitrackExtraCanvas", obs_canvas_get_uuid(canvas));
+			// OBS writes the profile config only from the settings dialog, so persist it here
+			config_save_safe(config, "tmp", nullptr);
 		}
 		// scenes of a canvas that no longer exists are loaded into the main canvas, so they go away together with it
 		std::list<obs_source_t *> scenes;
@@ -5338,7 +5350,9 @@ bool CanvasDock::StartVideo()
 			obs_source_remove(scene);
 			obs_source_release(scene);
 		}
-		obs_frontend_remove_canvas(aitum_canvas);
+		// obs_canvas_remove, not obs_frontend_remove_canvas: the latter re-enters the OBS canvas list while it is being
+		// modified (the frontend removes its entry itself by the canvas_remove signal), which drops our canvas from the list on Windows
+		obs_canvas_remove(aitum_canvas);
 		obs_canvas_release(aitum_canvas);
 		blog(LOG_INFO, "[Vertical Plugin] Canvas '%s' removed with %zu scenes", AITUM_CANVAS_NAME, scenes.size());
 	}
@@ -6520,7 +6534,7 @@ void CanvasDock::replay_output_stop(void *data, calldata_t *calldata)
 void CanvasDock::StreamButtonClicked()
 {
 	// in multitrack mode OBS owns the vertical output, the autostart flag must not flip from a click
-	if (multitrack_video_enabled()) {
+	if (MultitrackMode()) {
 		return;
 	}
 	enable_vertical = !enable_vertical;
@@ -6694,6 +6708,10 @@ void CanvasDock::RestoreMainUrl() {
 
 
 void CanvasDock::StartStreamOutput(std::vector<StreamServer>::iterator it) {
+	if (MultitrackMode()) {
+		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, output '%s' not started", it->name.c_str());
+		return;
+	}
 	CreateStreamOutput(it);
 	const bool started_video = StartVideo();
 	if (it->settings && obs_data_get_bool(it->settings, "advanced") && obs_get_module("aitum-multistream")) {
@@ -7026,6 +7044,10 @@ obs_encoder_t *CanvasDock::GetStreamAudioEncoder()
 
 void CanvasDock::StartStream()
 {
+	if (MultitrackMode()) {
+		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, own vertical output not started");
+		return;
+	}
 	stream_starting = true;
 	stream_stopping = false;
 	
@@ -8585,11 +8607,19 @@ QIcon CanvasDock::GetGroupIcon() const
 	return main_window->property("groupIcon").value<QIcon>();
 }
 
+// while the main stream runs the decision made at its start wins over the config: OBS may stream single-track with
+// Enhanced Broadcasting configured (go-live failure, service switch), and then the plugin pushes /vertical itself
+bool CanvasDock::MultitrackMode()
+{
+	return obs_frontend_streaming_active() ? main_stream_multitrack : multitrack_video_enabled();
+}
+
 void CanvasDock::MainStreamStarting()
 {
 	blog(LOG_INFO, "[Vertical Plugin] Main stream starting");
 
-	if (multitrack_video_streaming()) {
+	main_stream_multitrack = multitrack_video_streaming();
+	if (main_stream_multitrack) {
 		blog(LOG_INFO, "[Vertical Plugin] Multitrack video stream, main stream url left as is");
 		return;
 	}
@@ -8602,7 +8632,7 @@ void CanvasDock::MainStreamStart()
 	blog(LOG_INFO, "[Vertical Plugin] Main stream start");
 
 	CheckReplayBuffer(true);
-	if (multitrack_video_streaming()) {
+	if (main_stream_multitrack) {
 		// the button shows the stream time only when OBS really carries this canvas
 		auto streaming_output = obs_frontend_get_streaming_output();
 		if (streaming_output) {
