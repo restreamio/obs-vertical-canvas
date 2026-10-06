@@ -244,6 +244,8 @@ private:
 	bool enable_vertical = true;
 	bool stream_starting = false;
 	bool stream_stopping = false;
+	uint64_t multitrack_stream_start_ns = 0;
+	bool main_stream_multitrack = false;
 
 	QColor GetSelectionColor() const;
 	QColor GetCropColor() const;
@@ -339,6 +341,7 @@ private:
 
 	void TryRemux(QString path);
 	void PatchMainUrl();
+	bool MultitrackMode();
 	Q_INVOKABLE void RestoreMainUrl();
 	void StartStreamOutput(std::vector<StreamServer>::iterator it);
 	void CreateStreamOutput(std::vector<StreamServer>::iterator it);
