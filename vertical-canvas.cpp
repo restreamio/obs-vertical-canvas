@@ -8902,8 +8902,11 @@ void CanvasDock::UpdateInfoReady(QString info)
 	int patch;
 	if (sscanf(version, "%d.%d.%d", &major, &minor, &patch) == 3) {
 		auto sv = MAKE_SEMANTIC_VERSION(major, minor, patch);
-		if (sv > MAKE_SEMANTIC_VERSION(PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH)) {
+		auto installed = MAKE_SEMANTIC_VERSION(PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
+		// version.json only goes down when a bad release is rolled back, so a lower version is offered as a rollback
+		if (sv != installed) {
 			newer_version_available = QString::fromUtf8(version);
+			update_is_rollback = sv < installed;
 			configButton->setStyleSheet(QString::fromUtf8("background: rgb(192,128,0);"));
 			
 			// Extract download URL from S3 data
@@ -8935,8 +8938,9 @@ void CanvasDock::UpdateInstallerReady(QString installerPath)
 	// Ask user if they want to install now
 	QMessageBox::StandardButton reply = QMessageBox::question(
 		this, 
-		"Update Downloaded", 
-		QString("Update v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation.").arg(newer_version_available),
+		update_is_rollback ? "Rollback Downloaded" : "Update Downloaded", 
+		QString(update_is_rollback ? "Rollback v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation."
+					   : "Update v%1 has been downloaded. Do you want to install it now?\n\nNote: OBS Studio will need to be restarted after installation.").arg(newer_version_available),
 		QMessageBox::Yes | QMessageBox::No
 	);
 	
@@ -8959,6 +8963,7 @@ void CanvasDock::UpdateInstallerReady(QString installerPath)
 	// Clear update state since installer dialog was shown
 	newer_version_available.clear();
 	download_url.clear();
+	update_is_rollback = false;
 	configButton->setStyleSheet("");  // Reset to default styling
 	
 	// Hide update UI elements if config dialog is open
@@ -9629,8 +9634,8 @@ void CanvasDock::DownloadUpdate()
 
 	QMessageBox::StandardButton reply = QMessageBox::question(
 		this, 
-		"Download Update", 
-		QString("Do you want to download update v%1?").arg(newer_version_available),
+		update_is_rollback ? "Download Rollback" : "Download Update", 
+		QString(update_is_rollback ? "Do you want to download rollback to v%1?" : "Do you want to download update v%1?").arg(newer_version_available),
 		QMessageBox::Yes | QMessageBox::No
 	);
 	

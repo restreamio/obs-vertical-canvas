@@ -98,6 +98,7 @@ private:
 	QPointer<QAction> action;
 	QString newer_version_available;
 	QString download_url;
+	bool update_is_rollback = false;
 	QVBoxLayout *mainLayout;
 	OBSQTDisplay *preview;
 	bool preview_disabled = false;

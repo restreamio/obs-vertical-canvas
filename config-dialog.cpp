@@ -1082,8 +1082,10 @@ void OBSBasicSettings::AddServer()
 void OBSBasicSettings::LoadSettings()
 {
 	if (!canvasDock->newer_version_available.isEmpty()) {
-		newVersion->setText(QString::fromUtf8(obs_module_text("NewVersion")).arg(canvasDock->newer_version_available));
+		newVersion->setText(QString::fromUtf8(obs_module_text(canvasDock->update_is_rollback ? "RollbackVersion" : "NewVersion"))
+					    .arg(canvasDock->newer_version_available));
 		newVersion->setVisible(true);
+		downloadUpdateButton->setText(canvasDock->update_is_rollback ? "Download Rollback" : "Download Update");
 		downloadUpdateButton->setVisible(true);
 	} else {
 		newVersion->setVisible(false);

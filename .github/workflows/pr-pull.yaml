@@ -22,23 +22,91 @@ jobs:
 
   build-project:
     name: Build Project 🧱
-    # a label event only matters when it is the "sign" label
-    if: github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'sign'
+    # a label event only matters when it is the "sign" or "sign-upload" label
+    if: github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'sign' || github.event.label.name == 'sign-upload'
     uses: ./.github/workflows/build-project.yaml
     secrets: inherit
     permissions:
       contents: read
       pull-requests: read
 
+  upload-to-s3:
+    name: Upload to S3 ☁️
+    needs: build-project
+    # test builds get their own versioned names; the fixed-name installers and version.json stay untouched,
+    # so the website download and the plugin auto-update keep pointing at the release
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'sign-upload')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write # fetch OIDC token from AWS IAM
+    env:
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Plugin Info
+        id: plugin-info
+        run: |
+          PLUGIN_VERSION=$(jq -r '.version' buildspec.json)
+          COMMIT_HASH="${GITHUB_SHA:0:9}"
+
+          echo "pluginVersion=${PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "commitHash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        timeout-minutes: 1
+        with:
+          role-to-assume: arn:aws:iam::318522186253:role/github-public-oidc-role
+          aws-region: us-east-1
+          retry-max-attempts: 1
+
+      - name: Upload Builds to S3
+        run: |
+          PLUGIN_VERSION="${{ steps.plugin-info.outputs.pluginVersion }}"
+          COMMIT_HASH="${{ steps.plugin-info.outputs.commitHash }}"
+          PR_NUMBER="${{ github.event.number }}"
+
+          WINDOWS_FILE=$(find artifacts -name "*-windows-x64-Installer.exe" -type f | head -1)
+          MACOS_FILE=$(find artifacts -name "*-macos-universal.pkg" -type f | head -1)
+          if [ -z "$WINDOWS_FILE" ] || [ -z "$MACOS_FILE" ]; then
+            echo "::error::Installer not found: windows='${WINDOWS_FILE}' macos='${MACOS_FILE}'"
+            exit 1
+          fi
+
+          WINDOWS_NAME="obs-vertical-plugin-${PLUGIN_VERSION}-pr${PR_NUMBER}-windows-x64-${COMMIT_HASH}.exe"
+          MACOS_NAME="obs-vertical-plugin-${PLUGIN_VERSION}-pr${PR_NUMBER}-macos-universal-${COMMIT_HASH}.pkg"
+          aws s3 cp "$WINDOWS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/${WINDOWS_NAME}" --no-progress
+          aws s3 cp "$MACOS_FILE" "s3://${{ env.S3_BUCKET_NAME }}/${MACOS_NAME}" --no-progress
+
+          {
+            echo "### Test builds"
+            echo "- Windows: https://vertical-plugin.restream.io/${WINDOWS_NAME}"
+            echo "- macOS: https://vertical-plugin.restream.io/${MACOS_NAME}"
+          } >> $GITHUB_STEP_SUMMARY
+
   remove-sign-label:
     name: Remove sign label 🏷️
-    needs: build-project
-    if: always() && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'sign')
+    needs: [build-project, upload-to-s3]
+    if: always() && github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'sign') || contains(github.event.pull_request.labels.*.name, 'sign-upload'))
     runs-on: ubuntu-24.04
     permissions:
       pull-requests: write
     steps:
-      - name: Remove label 🏷️
+      - name: Remove sign label 🏷️
+        if: contains(github.event.pull_request.labels.*.name, 'sign')
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh pr edit ${{ github.event.number }} --repo ${{ github.repository }} --remove-label sign
+
+      - name: Remove sign-upload label 🏷️
+        if: contains(github.event.pull_request.labels.*.name, 'sign-upload')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit ${{ github.event.number }} --repo ${{ github.repository }} --remove-label sign-upload
